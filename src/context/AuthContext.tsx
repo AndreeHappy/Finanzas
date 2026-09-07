@@ -421,6 +421,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       if (error) return { error: error.message };
 
+      // Si el correo ya existía previamente en auth.users, Supabase devuelve identities = []
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        return {
+          error: 'Este correo electrónico ya se encuentra registrado. Inicia sesión directamente o restablece tu contraseña.',
+        };
+      }
+
       if (data.user && !data.session) {
         return { requiresEmailConfirmation: true };
       }

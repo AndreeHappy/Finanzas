@@ -231,6 +231,40 @@ END;
 $$;
 
 -- ------------------------------------------------------------------------------
+-- TRIGGER AUTOMÁTICO: Limpieza Total en Cascada al Eliminar un Perfil
+-- Si se elimina una fila de public.profiles (ya sea desde el panel administrativo,
+-- desde el Table Editor de Supabase o mediante sentencia SQL DELETE), este trigger
+-- purga de forma inmediata y automática:
+-- 1. Todas las transacciones del usuario en public.transactions.
+-- 2. Todas las tarjetas y billeteras del usuario en public.wallets_cards.
+-- 3. Todas las categorías personalizadas del usuario en public.categories.
+-- 4. La cuenta del usuario en auth.users (libera el correo para futuros registros).
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.handle_profile_deleted()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+BEGIN
+  -- 1. Eliminar movimientos
+  DELETE FROM public.transactions WHERE user_id = OLD.id;
+  -- 2. Eliminar tarjetas y billeteras
+  DELETE FROM public.wallets_cards WHERE user_id = OLD.id;
+  -- 3. Eliminar categorías
+  DELETE FROM public.categories WHERE user_id = OLD.id;
+  -- 4. Eliminar cuenta de auth.users
+  DELETE FROM auth.users WHERE id = OLD.id;
+  RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_profile_deleted_cleanup ON public.profiles;
+CREATE TRIGGER on_profile_deleted_cleanup
+  AFTER DELETE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.handle_profile_deleted();
+
+-- ------------------------------------------------------------------------------
 -- 5. TRIGGER AUTOMÁTICO: Inicialización de Usuario
 -- Al registrarse un usuario en auth.users, se crean automáticamente:
 -- 1. Perfil de usuario.
@@ -299,19 +333,13 @@ CREATE TRIGGER on_auth_user_created_setup
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user_setup();
 
 -- ------------------------------------------------------------------------------
--- 6. INICIALIZACIÓN RETROACTIVA (Para usuarios que ya existan en auth.users)
+-- 6. INICIALIZACIÓN RETROACTIVA (Solo para usuarios con perfil activo)
 -- ------------------------------------------------------------------------------
 DO $$
 DECLARE
     u RECORD;
 BEGIN
-    FOR u IN SELECT id, email, raw_user_meta_data FROM auth.users LOOP
-        IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = u.id) THEN
-            INSERT INTO public.profiles (id, email, full_name, theme_preference)
-            VALUES (u.id, u.email, COALESCE(u.raw_user_meta_data->>'full_name', split_part(u.email, '@', 1)), 'light')
-            ON CONFLICT (id) DO NOTHING;
-        END IF;
-
+    FOR u IN SELECT id, email, full_name FROM public.profiles LOOP
         IF NOT EXISTS (SELECT 1 FROM public.wallets_cards WHERE user_id = u.id) THEN
             INSERT INTO public.wallets_cards (user_id, name, type, color_gradient, card_number_suffix, initial_balance)
             VALUES 
@@ -336,3 +364,13 @@ BEGIN
     END LOOP;
 END;
 $$;
+
+-- ------------------------------------------------------------------------------
+-- 7. PURGA INMEDIATA DE REGISTROS HUÉRFANOS Y CUENTAS ELIMINADAS
+-- Purga de forma retroactiva cualquier tarjeta, movimiento o cuenta de auth.users
+-- que haya quedado huérfana por haber eliminado perfiles con anterioridad.
+-- ------------------------------------------------------------------------------
+DELETE FROM public.transactions WHERE user_id NOT IN (SELECT id FROM public.profiles);
+DELETE FROM public.wallets_cards WHERE user_id NOT IN (SELECT id FROM public.profiles);
+DELETE FROM public.categories WHERE user_id NOT IN (SELECT id FROM public.profiles);
+DELETE FROM auth.users WHERE id NOT IN (SELECT id FROM public.profiles);
