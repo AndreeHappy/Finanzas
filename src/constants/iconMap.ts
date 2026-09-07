@@ -1,0 +1,65 @@
+import React from 'react';
+import {
+  ForkKnife,
+  Car,
+  House,
+  GameController,
+  HeartStraight,
+  Bag,
+  GraduationCap,
+  Money,
+  Briefcase,
+  TrendUp,
+  Tag,
+  ShoppingBag,
+  Airplane,
+  Coffee,
+  GasPump,
+  FilmSlate,
+  Gift,
+  Laptop,
+  Phone,
+  ShieldCheck,
+  PiggyBank,
+  CreditCard,
+  Bank,
+  Receipt,
+  Coins,
+  Wallet,
+  type IconProps,
+} from '@phosphor-icons/react';
+
+export const ICON_MAP: Record<string, React.ComponentType<IconProps>> = {
+  ForkKnife,
+  Car,
+  House,
+  GameController,
+  HeartStraight,
+  Bag,
+  GraduationCap,
+  Money,
+  Briefcase,
+  TrendUp,
+  Tag,
+  ShoppingBag,
+  Airplane,
+  Coffee,
+  GasPump,
+  FilmSlate,
+  Gift,
+  Laptop,
+  Phone,
+  ShieldCheck,
+  PiggyBank,
+  CreditCard,
+  Bank,
+  Receipt,
+  Coins,
+  Wallet,
+};
+
+export const AVAILABLE_ICONS = Object.keys(ICON_MAP);
+
+export const getCategoryIcon = (iconName: string): React.ComponentType<IconProps> => {
+  return ICON_MAP[iconName] || Tag;
+};
