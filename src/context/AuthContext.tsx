@@ -41,20 +41,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const LOCAL_STORAGE_USER_KEY = 'app_finanzas_auth_user_v1';
 const SESSION_EXPIRED_KEY = 'app_finanzas_session_expired_notice';
 
-const DEFAULT_ADMIN_EMAILS = [
-  'andreesosa4f@gmail.com',
-];
+const DEFAULT_ADMIN_EMAILS: string[] = [];
 
 export const isEmailAdmin = (email?: string | null): boolean => {
   if (!email) return false;
   const clean = email.toLowerCase().trim();
-  if (DEFAULT_ADMIN_EMAILS.includes(clean)) return true;
   const envAdmins = ((import.meta.env.VITE_ADMIN_EMAILS as string) || '')
     .toLowerCase()
     .split(',')
     .map((e: string) => e.trim())
     .filter(Boolean);
-  return envAdmins.includes(clean);
+  return DEFAULT_ADMIN_EMAILS.includes(clean) || envAdmins.includes(clean);
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

@@ -38,12 +38,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  -- 1. Bypass inmediato si es el correo del Superadministrador (desde JWT en memoria)
-  IF (COALESCE(auth.jwt() ->> 'email', '') ILIKE '%andreesosa4f@gmail.com%') THEN
-    RETURN TRUE;
-  END IF;
-
-  -- 2. Verificación en profiles ejecutada como SECURITY DEFINER (omite RLS interno)
+  -- Verificación en profiles ejecutada como SECURITY DEFINER (omite RLS interno)
   RETURN EXISTS (
     SELECT 1 FROM public.profiles 
     WHERE id = auth.uid() AND (is_admin = TRUE OR role = 'admin')
@@ -61,14 +56,13 @@ CREATE POLICY "Ver perfiles"
     ON public.profiles FOR SELECT
     USING (
         auth.uid() = id 
-        OR (auth.jwt() ->> 'email' ILIKE '%andreesosa4f@gmail.com%')
         OR public.is_admin()
     );
 
 DROP POLICY IF EXISTS "Los usuarios pueden actualizar su propio perfil" ON public.profiles;
 CREATE POLICY "Los usuarios pueden actualizar su propio perfil"
     ON public.profiles FOR UPDATE
-    USING (auth.uid() = id OR (auth.jwt() ->> 'email' ILIKE '%andreesosa4f@gmail.com%') OR public.is_admin());
+    USING (auth.uid() = id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Los usuarios pueden insertar su propio perfil" ON public.profiles;
 CREATE POLICY "Los usuarios pueden insertar su propio perfil"
@@ -78,7 +72,7 @@ CREATE POLICY "Los usuarios pueden insertar su propio perfil"
 DROP POLICY IF EXISTS "Admins pueden eliminar perfiles" ON public.profiles;
 CREATE POLICY "Admins pueden eliminar perfiles"
     ON public.profiles FOR DELETE
-    USING ((auth.jwt() ->> 'email' ILIKE '%andreesosa4f@gmail.com%') OR public.is_admin());
+    USING (public.is_admin());
 
 -- ------------------------------------------------------------------------------
 -- 2. TABLA: wallets_cards (Tarjetas Digitales, Billetes de Efectivo, Ahorros)
@@ -104,22 +98,22 @@ ALTER TABLE public.wallets_cards ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Acceso a tarjetas propias (SELECT)" ON public.wallets_cards;
 CREATE POLICY "Acceso a tarjetas propias (SELECT)"
     ON public.wallets_cards FOR SELECT
-    USING (auth.uid() = user_id OR (auth.jwt() ->> 'email' ILIKE '%andreesosa4f@gmail.com%') OR public.is_admin());
+    USING (auth.uid() = user_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Creación de tarjetas propias (INSERT)" ON public.wallets_cards;
 CREATE POLICY "Creación de tarjetas propias (INSERT)"
     ON public.wallets_cards FOR INSERT
-    WITH CHECK (auth.uid() = user_id OR (auth.jwt() ->> 'email' ILIKE '%andreesosa4f@gmail.com%') OR public.is_admin());
+    WITH CHECK (auth.uid() = user_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Actualización de tarjetas propias (UPDATE)" ON public.wallets_cards;
 CREATE POLICY "Actualización de tarjetas propias (UPDATE)"
     ON public.wallets_cards FOR UPDATE
-    USING (auth.uid() = user_id OR (auth.jwt() ->> 'email' ILIKE '%andreesosa4f@gmail.com%') OR public.is_admin());
+    USING (auth.uid() = user_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Eliminación de tarjetas propias (DELETE)" ON public.wallets_cards;
 CREATE POLICY "Eliminación de tarjetas propias (DELETE)"
     ON public.wallets_cards FOR DELETE
-    USING (auth.uid() = user_id OR (auth.jwt() ->> 'email' ILIKE '%andreesosa4f@gmail.com%') OR public.is_admin());
+    USING (auth.uid() = user_id OR public.is_admin());
 
 -- ------------------------------------------------------------------------------
 -- 3. TABLA: categories (Categorías Personalizadas de Ingresos y Gastos)
@@ -191,22 +185,22 @@ ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Acceso a transacciones propias (SELECT)" ON public.transactions;
 CREATE POLICY "Acceso a transacciones propias (SELECT)"
     ON public.transactions FOR SELECT
-    USING (auth.uid() = user_id OR (auth.jwt() ->> 'email' ILIKE '%andreesosa4f@gmail.com%') OR public.is_admin());
+    USING (auth.uid() = user_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Creación de transacciones propias (INSERT)" ON public.transactions;
 CREATE POLICY "Creación de transacciones propias (INSERT)"
     ON public.transactions FOR INSERT
-    WITH CHECK (auth.uid() = user_id OR (auth.jwt() ->> 'email' ILIKE '%andreesosa4f@gmail.com%') OR public.is_admin());
+    WITH CHECK (auth.uid() = user_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Actualización de transacciones propias (UPDATE)" ON public.transactions;
 CREATE POLICY "Actualización de transacciones propias (UPDATE)"
     ON public.transactions FOR UPDATE
-    USING (auth.uid() = user_id OR (auth.jwt() ->> 'email' ILIKE '%andreesosa4f@gmail.com%') OR public.is_admin());
+    USING (auth.uid() = user_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Eliminación de transacciones propias (DELETE)" ON public.transactions;
 CREATE POLICY "Eliminación de transacciones propias (DELETE)"
     ON public.transactions FOR DELETE
-    USING (auth.uid() = user_id OR (auth.jwt() ->> 'email' ILIKE '%andreesosa4f@gmail.com%') OR public.is_admin());
+    USING (auth.uid() = user_id OR public.is_admin());
 
 -- ------------------------------------------------------------------------------
 -- FUNCIÓN RPC: admin_delete_user (Eliminación Total y Definitiva de un Usuario)
@@ -221,10 +215,7 @@ SET search_path = public, auth
 AS $$
 BEGIN
   -- 1. Verificar privilegios de administrador
-  IF NOT (
-    (COALESCE(auth.jwt() ->> 'email', '') ILIKE '%andreesosa4f@gmail.com%') 
-    OR public.is_admin()
-  ) THEN
+  IF NOT public.is_admin() THEN
     RAISE EXCEPTION 'Acceso denegado: solo administradores pueden eliminar usuarios.';
   END IF;
 
