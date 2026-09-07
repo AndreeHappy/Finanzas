@@ -83,24 +83,23 @@ export function parseLocalDateParts(dateInput: string | Date | undefined): {
     };
   }
 
-  let y = now.getFullYear();
-  let m = now.getMonth();
-  let d = now.getDate();
-  let h = now.getHours();
-  let min = now.getMinutes();
-  let s = now.getSeconds();
+  let y: number, m: number, d: number, h: number = 0, min: number = 0, s: number = 0;
 
   if (typeof dateInput === 'string') {
-    const isoMatch = dateInput.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}):(\d{2}))?/);
-    if (isoMatch) {
-      y = parseInt(isoMatch[1], 10);
-      m = parseInt(isoMatch[2], 10) - 1;
-      d = parseInt(isoMatch[3], 10);
-      if (isoMatch[4]) h = parseInt(isoMatch[4], 10);
-      if (isoMatch[5]) min = parseInt(isoMatch[5], 10);
-      if (isoMatch[6]) s = parseInt(isoMatch[6], 10);
+    const trimmed = dateInput.trim();
+    // Caso 1: Cadena simple YYYY-MM-DD sin hora ni zona horaria
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const parts = trimmed.split('-').map(Number);
+      y = parts[0];
+      m = parts[1] - 1;
+      d = parts[2];
+      h = now.getHours();
+      min = now.getMinutes();
+      s = now.getSeconds();
     } else {
-      const dt = new Date(dateInput);
+      // Caso 2: Cadena ISO con hora / zona horaria (ej. 2026-09-07T18:30:00Z)
+      // Usar new Date(trimmed) para que el navegador convierta automáticamente la hora UTC a la zona horaria local del usuario
+      const dt = new Date(trimmed);
       if (!isNaN(dt.getTime())) {
         y = dt.getFullYear();
         m = dt.getMonth();
@@ -108,6 +107,10 @@ export function parseLocalDateParts(dateInput: string | Date | undefined): {
         h = dt.getHours();
         min = dt.getMinutes();
         s = dt.getSeconds();
+      } else {
+        y = now.getFullYear();
+        m = now.getMonth();
+        d = now.getDate();
       }
     }
   } else if (dateInput instanceof Date) {
@@ -117,6 +120,10 @@ export function parseLocalDateParts(dateInput: string | Date | undefined): {
     h = dateInput.getHours();
     min = dateInput.getMinutes();
     s = dateInput.getSeconds();
+  } else {
+    y = now.getFullYear();
+    m = now.getMonth();
+    d = now.getDate();
   }
 
   const localObj = new Date(y, m, d, h, min, s);

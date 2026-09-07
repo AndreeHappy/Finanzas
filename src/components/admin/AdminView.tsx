@@ -21,6 +21,8 @@ import {
   Check,
   FloppyDisk,
   X,
+  Plus,
+  Sparkle,
 } from '@phosphor-icons/react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -142,6 +144,26 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
   const [editTxNotes, setEditTxNotes] = useState('');
 
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // Estado para Registrar Movimiento desde el Panel de Admin
+  const [isCreatingTx, setIsCreatingTx] = useState(false);
+  const [newTxUserId, setNewTxUserId] = useState('');
+  const [newTxWalletId, setNewTxWalletId] = useState('');
+  const [newTxConcept, setNewTxConcept] = useState('');
+  const [newTxAmount, setNewTxAmount] = useState('');
+  const [newTxType, setNewTxType] = useState<Transaction['type']>('expense');
+  const [newTxCategory, setNewTxCategory] = useState('General');
+  const [newTxDate, setNewTxDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [newTxNotes, setNewTxNotes] = useState('');
+  const [isSubmittingNewTx, setIsSubmittingNewTx] = useState(false);
+
+  // Estado para creación de tarjetas masiva o individual
+  const [isFixingWallets, setIsFixingWallets] = useState(false);
+
+  // Detección reactiva de usuarios que no tienen ninguna tarjeta en el sistema
+  const usersWithoutWallets = useMemo(() => {
+    return users.filter((u) => !allWallets.some((w) => w.user_id === u.id));
+  }, [users, allWallets]);
 
   // Modal de confirmación de eliminación
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -444,6 +466,232 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
     }
   };
 
+  // Crear tarjetas y categorías predeterminadas para un usuario específico (ej. Andree)
+  const handleCreateDefaultWalletsForUser = async (targetUser: UserProfile) => {
+    setIsFixingWallets(true);
+    try {
+      if (isSupabaseConfigured && supabase) {
+        const defaultWalletsToInsert = [
+          {
+            user_id: targetUser.id,
+            name: 'Tarjeta Digital Principal',
+            type: 'digital',
+            color_gradient: 'emerald',
+            card_number_suffix: '4821',
+            initial_balance: 0.0,
+          },
+          {
+            user_id: targetUser.id,
+            name: 'Billetera Efectivo',
+            type: 'cash',
+            color_gradient: 'mint',
+            initial_balance: 0.0,
+          },
+          {
+            user_id: targetUser.id,
+            name: 'Bóveda de Ahorros',
+            type: 'savings',
+            color_gradient: 'sapphire',
+            initial_balance: 0.0,
+          },
+        ];
+
+        const { data: createdWallets, error: wError } = await supabase
+          .from('wallets_cards')
+          .insert(defaultWalletsToInsert)
+          .select();
+
+        if (wError) throw wError;
+
+        // Categorías por defecto si no existen
+        const { data: existingCats } = await supabase
+          .from('categories')
+          .select('id')
+          .eq('user_id', targetUser.id);
+
+        if (!existingCats || existingCats.length === 0) {
+          const defaultCats = [
+            { user_id: targetUser.id, name: 'Alimentación', type: 'expense', icon_name: 'ForkKnife', color: '#f59e0b', is_system: false },
+            { user_id: targetUser.id, name: 'Transporte', type: 'expense', icon_name: 'Car', color: '#3b82f6', is_system: false },
+            { user_id: targetUser.id, name: 'Entretenimiento', type: 'expense', icon_name: 'GameController', color: '#ec4899', is_system: false },
+            { user_id: targetUser.id, name: 'Reposición de Ahorro', type: 'expense', icon_name: 'PiggyBank', color: '#06b6d4', is_system: false },
+            { user_id: targetUser.id, name: 'Otros Gastos', type: 'expense', icon_name: 'DotsThreeOutline', color: '#64748b', is_system: false },
+            { user_id: targetUser.id, name: 'Otros', type: 'income', icon_name: 'Tag', color: '#10b981', is_system: false },
+            { user_id: targetUser.id, name: 'Regalo', type: 'income', icon_name: 'Gift', color: '#8b5cf6', is_system: false },
+            { user_id: targetUser.id, name: 'Bonos', type: 'income', icon_name: 'TrendUp', color: '#f97316', is_system: false },
+            { user_id: targetUser.id, name: 'Retiro de Ahorro', type: 'income', icon_name: 'ArrowDownLeft', color: '#06b6d4', is_system: false },
+            { user_id: targetUser.id, name: 'Otros Ingresos', type: 'income', icon_name: 'Coins', color: '#14b8a6', is_system: false },
+          ];
+          await supabase.from('categories').insert(defaultCats);
+        }
+
+        if (createdWallets) {
+          setAllWallets((prev) => [...createdWallets, ...prev]);
+        }
+      }
+
+      await refreshFinanceData();
+      await loadDatabaseData();
+
+      setFeedback({
+        type: 'success',
+        message: `¡Tarjetas y categorías base creadas exitosamente para "${targetUser.full_name || targetUser.email}"!`,
+      });
+    } catch (err: any) {
+      console.error('Error al crear tarjetas para usuario:', err);
+      setFeedback({
+        type: 'error',
+        message: `Error al crear tarjetas: ${err?.message || 'Fallo de inserción'}`,
+      });
+    } finally {
+      setIsFixingWallets(false);
+    }
+  };
+
+  // Reparar automáticamente a todos los usuarios sin tarjetas
+  const handleAutoFixAllUsersWithoutWallets = async () => {
+    if (usersWithoutWallets.length === 0) return;
+    setIsFixingWallets(true);
+    let successCount = 0;
+    try {
+      for (const targetUser of usersWithoutWallets) {
+        if (isSupabaseConfigured && supabase) {
+          const defaultWalletsToInsert = [
+            {
+              user_id: targetUser.id,
+              name: 'Tarjeta Digital Principal',
+              type: 'digital',
+              color_gradient: 'emerald',
+              card_number_suffix: '4821',
+              initial_balance: 0.0,
+            },
+            {
+              user_id: targetUser.id,
+              name: 'Billetera Efectivo',
+              type: 'cash',
+              color_gradient: 'mint',
+              initial_balance: 0.0,
+            },
+            {
+              user_id: targetUser.id,
+              name: 'Bóveda de Ahorros',
+              type: 'savings',
+              color_gradient: 'sapphire',
+              initial_balance: 0.0,
+            },
+          ];
+          await supabase.from('wallets_cards').insert(defaultWalletsToInsert);
+
+          const { data: existingCats } = await supabase
+            .from('categories')
+            .select('id')
+            .eq('user_id', targetUser.id);
+
+          if (!existingCats || existingCats.length === 0) {
+            const defaultCats = [
+              { user_id: targetUser.id, name: 'Alimentación', type: 'expense', icon_name: 'ForkKnife', color: '#f59e0b', is_system: false },
+              { user_id: targetUser.id, name: 'Transporte', type: 'expense', icon_name: 'Car', color: '#3b82f6', is_system: false },
+              { user_id: targetUser.id, name: 'Entretenimiento', type: 'expense', icon_name: 'GameController', color: '#ec4899', is_system: false },
+              { user_id: targetUser.id, name: 'Reposición de Ahorro', type: 'expense', icon_name: 'PiggyBank', color: '#06b6d4', is_system: false },
+              { user_id: targetUser.id, name: 'Otros Gastos', type: 'expense', icon_name: 'DotsThreeOutline', color: '#64748b', is_system: false },
+              { user_id: targetUser.id, name: 'Otros', type: 'income', icon_name: 'Tag', color: '#10b981', is_system: false },
+              { user_id: targetUser.id, name: 'Regalo', type: 'income', icon_name: 'Gift', color: '#8b5cf6', is_system: false },
+              { user_id: targetUser.id, name: 'Bonos', type: 'income', icon_name: 'TrendUp', color: '#f97316', is_system: false },
+              { user_id: targetUser.id, name: 'Retiro de Ahorro', type: 'income', icon_name: 'ArrowDownLeft', color: '#06b6d4', is_system: false },
+              { user_id: targetUser.id, name: 'Otros Ingresos', type: 'income', icon_name: 'Coins', color: '#14b8a6', is_system: false },
+            ];
+            await supabase.from('categories').insert(defaultCats);
+          }
+          successCount++;
+        }
+      }
+
+      await refreshFinanceData();
+      await loadDatabaseData();
+
+      setFeedback({
+        type: 'success',
+        message: `¡Se inicializaron las tarjetas y categorías base para ${successCount} usuario(s) exitosamente!`,
+      });
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: `Error al procesar usuarios: ${err?.message || 'Error en Supabase'}`,
+      });
+    } finally {
+      setIsFixingWallets(false);
+    }
+  };
+
+  // Abrir modal de Registro de Movimiento desde Admin
+  const handleOpenCreateTx = (presetUserId?: string) => {
+    const targetUid = presetUserId || (selectedUserFilter !== 'all' ? selectedUserFilter : users[0]?.id || '');
+    setNewTxUserId(targetUid);
+    const userWallets = allWallets.filter((w) => w.user_id === targetUid);
+    setNewTxWalletId(userWallets[0]?.id || '');
+    setNewTxConcept('');
+    setNewTxAmount('');
+    setNewTxType('expense');
+    setNewTxCategory('General');
+    setNewTxDate(new Date().toISOString().split('T')[0]);
+    setNewTxNotes('');
+    setIsCreatingTx(true);
+  };
+
+  // Guardar nuevo Movimiento registrado por Admin
+  const handleCreateTransaction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTxUserId || !newTxWalletId || !newTxConcept.trim() || !newTxAmount) {
+      setFeedback({ type: 'error', message: 'Por favor complete todos los campos obligatorios.' });
+      return;
+    }
+    setIsSubmittingNewTx(true);
+
+    try {
+      const parsedAmount = parseFloat(newTxAmount);
+      if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        throw new Error('El monto ingresado no es válido.');
+      }
+
+      const txDateIso = newTxDate ? new Date(`${newTxDate}T12:00:00`).toISOString() : new Date().toISOString();
+
+      const newRecord = {
+        user_id: newTxUserId,
+        wallet_id: newTxWalletId,
+        concept: newTxConcept.trim(),
+        amount: parsedAmount,
+        type: newTxType,
+        category_name: newTxCategory.trim() || 'General',
+        date: txDateIso,
+        notes: newTxNotes.trim() || null,
+      };
+
+      if (isSupabaseConfigured && supabase) {
+        const { data, error } = await supabase.from('transactions').insert(newRecord).select().single();
+        if (error) throw error;
+        if (data) {
+          setAllTransactions((prev) => [data, ...prev]);
+        }
+      }
+
+      await refreshFinanceData();
+      await loadDatabaseData();
+
+      setFeedback({
+        type: 'success',
+        message: `Movimiento "${newTxConcept.trim()}" registrado correctamente en la base de datos.`,
+      });
+      setIsCreatingTx(false);
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: `Error al registrar movimiento: ${err?.message || 'Error desconocido'}`,
+      });
+    } finally {
+      setIsSubmittingNewTx(false);
+    }
+  };
+
   // Ejecutar eliminación confirmada
   const handleExecuteDelete = async () => {
     if (!deleteConfirm) return;
@@ -702,6 +950,45 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
         )}
       </AnimatePresence>
 
+      {/* Banner de Inicialización / Reparación para Usuarios sin Tarjetas */}
+      <AnimatePresence>
+        {usersWithoutWallets.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
+          >
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <Sparkle size={20} weight="fill" />
+              </div>
+              <div>
+                <p className="font-bold text-slate-900 dark:text-white">
+                  Se detectaron {usersWithoutWallets.length} usuario(s) sin tarjetas configuradas en Supabase (ej.{' '}
+                  <span className="text-amber-600 dark:text-amber-400 font-mono">
+                    {usersWithoutWallets.map((u) => u.full_name || u.email).join(', ')}
+                  </span>
+                  ).
+                </p>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
+                  Puedes inicializar automáticamente sus 3 tarjetas oficiales (Digital, Efectivo y Ahorros) y sus categorías base para que puedan operar inmediatamente.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleAutoFixAllUsersWithoutWallets}
+              disabled={isFixingWallets}
+              className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shrink-0 transition-all cursor-pointer shadow-md shadow-amber-600/20 disabled:opacity-50"
+            >
+              <Sparkle size={15} weight="bold" />
+              <span>{isFixingWallets ? 'Inicializando...' : 'Inicializar Tarjetas Base'}</span>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* KPI Cards de Base de Datos */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="glass-panel rounded-2xl p-4 shadow-sm">
@@ -952,18 +1239,34 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
                         <td className="py-3 px-4 font-mono text-slate-600 dark:text-slate-300">
                           {u.phone_number || '—'}
                         </td>
-                        <td className="py-3 px-4 font-mono font-bold text-slate-900 dark:text-white">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedUserFilter(u.id);
-                              setActiveTab('wallets');
-                            }}
-                            className="hover:underline text-emerald-600 dark:text-emerald-400 cursor-pointer"
-                            title="Ver tarjetas de este usuario"
-                          >
-                            {userWalletsCount} tarjetas
-                          </button>
+                        <td className="py-3 px-4 font-mono font-bold">
+                          {userWalletsCount === 0 ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-rose-500 font-bold text-xs">0</span>
+                              <button
+                                type="button"
+                                onClick={() => handleCreateDefaultWalletsForUser(u)}
+                                disabled={isFixingWallets}
+                                className="px-2 py-0.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 font-black text-[10px] uppercase flex items-center gap-1 cursor-pointer transition-all disabled:opacity-50"
+                                title="Crear las 3 tarjetas base para este usuario"
+                              >
+                                <Plus size={11} weight="bold" />
+                                <span>+ Crear Tarjetas</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedUserFilter(u.id);
+                                setActiveTab('wallets');
+                              }}
+                              className="hover:underline text-emerald-600 dark:text-emerald-400 cursor-pointer"
+                              title="Ver tarjetas de este usuario"
+                            >
+                              {userWalletsCount} tarjetas
+                            </button>
+                          )}
                         </td>
                         <td className="py-3 px-4 font-mono font-bold text-slate-900 dark:text-white">
                           <button
@@ -979,7 +1282,43 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
                           </button>
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                          <div className="flex items-center justify-end gap-1">
+                            {/* Ver Tarjetas de este usuario */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedUserFilter(u.id);
+                                setActiveTab('wallets');
+                              }}
+                              className="p-1.5 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors cursor-pointer"
+                              title="Ver tarjetas de este usuario"
+                            >
+                              <CreditCard size={16} weight="bold" />
+                            </button>
+
+                            {/* Ver Movimientos de este usuario */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedUserFilter(u.id);
+                                setActiveTab('transactions');
+                              }}
+                              className="p-1.5 rounded-xl text-slate-400 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors cursor-pointer"
+                              title="Ver movimientos de este usuario"
+                            >
+                              <Receipt size={16} weight="bold" />
+                            </button>
+
+                            {/* Registrar Movimiento para este usuario */}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenCreateTx(u.id)}
+                              className="p-1.5 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors cursor-pointer"
+                              title="Registrar nuevo movimiento para este usuario"
+                            >
+                              <Plus size={16} weight="bold" />
+                            </button>
+
                             {/* Botón Editar Usuario */}
                             <button
                               type="button"
@@ -1154,28 +1493,58 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
           </div>
         )}
 
-        {/* TAB 3: MOVIMIENTOS (CON EDICIÓN DE MOVIMIENTO) */}
+        {/* TAB 3: MOVIMIENTOS (CON EDICIÓN Y REGISTRO DE MOVIMIENTOS) */}
         {activeTab === 'transactions' && (
-          <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-white/[0.08]">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-slate-50 dark:bg-white/[0.03] text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-white/[0.06]">
-                <tr>
-                  <th className="py-3.5 px-4">Usuario & Cuenta</th>
-                  <th className="py-3.5 px-4">Concepto / Categoría</th>
-                  <th className="py-3.5 px-4">Tipo</th>
-                  <th className="py-3.5 px-4">Monto</th>
-                  <th className="py-3.5 px-4">Fecha</th>
-                  <th className="py-3.5 px-4 text-right">Acciones Admin</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-white/[0.06]">
-                {filteredTransactions.length === 0 ? (
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 px-1">
+              <div className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                <span>Total: </span>
+                <span className="font-mono text-slate-900 dark:text-white font-bold">{filteredTransactions.length}</span>{' '}
+                movimiento(s)
+                {selectedUserFilter !== 'all' && (
+                  <span className="ml-1 text-emerald-600 dark:text-emerald-400 font-bold">
+                    filtrados para {userMap.get(selectedUserFilter)?.full_name || userMap.get(selectedUserFilter)?.email}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => handleOpenCreateTx()}
+                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-600/20 transition-all"
+              >
+                <Plus size={15} weight="bold" />
+                <span>Registrar Movimiento</span>
+              </button>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-white/[0.08]">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-50 dark:bg-white/[0.03] text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-white/[0.06]">
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-slate-400 font-medium">
-                      No se encontraron movimientos registrados con este filtro.
-                    </td>
+                    <th className="py-3.5 px-4">Usuario & Cuenta</th>
+                    <th className="py-3.5 px-4">Concepto / Categoría</th>
+                    <th className="py-3.5 px-4">Tipo</th>
+                    <th className="py-3.5 px-4">Monto</th>
+                    <th className="py-3.5 px-4">Fecha</th>
+                    <th className="py-3.5 px-4 text-right">Acciones Admin</th>
                   </tr>
-                ) : (
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-white/[0.06]">
+                  {filteredTransactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-slate-400 font-medium space-y-2">
+                        <p>No se encontraron movimientos registrados con este filtro.</p>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCreateTx()}
+                          className="px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 font-black text-xs inline-flex items-center gap-1 cursor-pointer transition-all"
+                        >
+                          <Plus size={14} weight="bold" />
+                          <span>+ Registrar Primer Movimiento</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ) : (
                   filteredTransactions.map((t) => {
                     const owner = userMap.get(t.user_id);
                     const wallet = walletMap.get(t.wallet_id);
@@ -1273,8 +1642,9 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+    </div>
 
       {/* MODAL 1: EDITAR USUARIO */}
       <AnimatePresence>
@@ -1783,6 +2153,260 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
                   {isDeleting ? 'Eliminando...' : 'Sí, Eliminar Definitivamente'}
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL 5: REGISTRAR MOVIMIENTO (ADMIN) */}
+      <AnimatePresence>
+        {isCreatingTx && (
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#141620] border border-slate-200 dark:border-white/[0.1] p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.08]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
+                    <Plus size={22} weight="bold" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                      Registrar Movimiento (Admin)
+                    </h3>
+                    <span className="text-[11px] text-slate-400 font-mono block">
+                      Inserción directa en base de datos
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingTx(false)}
+                  className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateTransaction} className="space-y-3.5">
+                {/* Seleccionar Usuario */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase">
+                    Usuario Destino
+                  </label>
+                  <select
+                    value={newTxUserId}
+                    onChange={(e) => {
+                      const uid = e.target.value;
+                      setNewTxUserId(uid);
+                      const uWallets = allWallets.filter((w) => w.user_id === uid);
+                      setNewTxWalletId(uWallets[0]?.id || '');
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-black/30 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                    required
+                  >
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.full_name || 'Sin nombre'} ({u.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Seleccionar Tarjeta o Crear si no tiene */}
+                {(() => {
+                  const targetUserWallets = allWallets.filter((w) => w.user_id === newTxUserId);
+                  const selectedUserObj = users.find((u) => u.id === newTxUserId);
+
+                  if (targetUserWallets.length === 0) {
+                    return (
+                      <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs space-y-2">
+                        <p className="font-bold">Este usuario no tiene ninguna tarjeta creada aún.</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (selectedUserObj) handleCreateDefaultWalletsForUser(selectedUserObj);
+                          }}
+                          disabled={isFixingWallets}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <Plus size={14} weight="bold" />
+                          <span>{isFixingWallets ? 'Creando...' : 'Crear 3 Tarjetas Base Ahora'}</span>
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase">
+                        Tarjeta / Cuenta Asociada
+                      </label>
+                      <select
+                        value={newTxWalletId}
+                        onChange={(e) => setNewTxWalletId(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-black/30 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                        required
+                      >
+                        {targetUserWallets.map((w) => (
+                          <option key={w.id} value={w.id}>
+                            {w.name} ({w.type === 'savings' ? 'Ahorro' : w.type === 'cash' ? 'Efectivo' : 'Digital'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })()}
+
+                {/* Concepto */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase">
+                    Concepto / Detalle
+                  </label>
+                  <input
+                    type="text"
+                    value={newTxConcept}
+                    onChange={(e) => setNewTxConcept(e.target.value)}
+                    placeholder="Ej. Depósito inicial, Pago de servicios, etc."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-black/30 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase">
+                      Monto (S/.)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={newTxAmount}
+                      onChange={(e) => setNewTxAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-black/30 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase">
+                      Fecha del Registro
+                    </label>
+                    <input
+                      type="date"
+                      value={newTxDate}
+                      onChange={(e) => setNewTxDate(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-black/30 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Tipo */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase">
+                    Tipo de Movimiento
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setNewTxType('expense')}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
+                        newTxType === 'expense'
+                          ? 'bg-rose-500/15 border-rose-500 text-rose-600 dark:text-rose-400 shadow-xs'
+                          : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      Gasto
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewTxType('income')}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
+                        newTxType === 'income'
+                          ? 'bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                          : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      Ingreso
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewTxType('savings_deposit')}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
+                        newTxType === 'savings_deposit'
+                          ? 'bg-amber-500/15 border-amber-500 text-amber-600 dark:text-amber-400 shadow-xs'
+                          : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      Aporte Ahorro
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewTxType('savings_withdrawal')}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
+                        newTxType === 'savings_withdrawal'
+                          ? 'bg-sky-500/15 border-sky-500 text-sky-600 dark:text-sky-400 shadow-xs'
+                          : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      Retiro Ahorro
+                    </button>
+                  </div>
+                </div>
+
+                {/* Categoría */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase">
+                    Categoría
+                  </label>
+                  <input
+                    type="text"
+                    value={newTxCategory}
+                    onChange={(e) => setNewTxCategory(e.target.value)}
+                    placeholder="Ej. Alimentación, Sueldo, General..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-black/30 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                    required
+                  />
+                </div>
+
+                {/* Notas */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase">
+                    Notas Adicionales (Opcional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={newTxNotes}
+                    onChange={(e) => setNewTxNotes(e.target.value)}
+                    placeholder="Observaciones de administración..."
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-black/30 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 resize-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-white/[0.08]">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatingTx(false)}
+                    disabled={isSubmittingNewTx}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingNewTx || !newTxWalletId}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSubmittingNewTx ? 'Registrando...' : 'Registrar en BD'}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

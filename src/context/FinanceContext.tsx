@@ -666,6 +666,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         if (data) {
           setTransactions((prev) => [data, ...prev]);
+          refreshData().catch((e) => console.warn('Error refrescando datos:', e));
           return;
         }
       } catch (err: any) {
@@ -692,6 +693,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setTransactions((prev) =>
       prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
     );
+
+    if (user && isSupabaseConfigured && supabase) {
+      refreshData().catch((e) => console.warn('Error refrescando datos:', e));
+    }
   };
 
   // Eliminar movimiento
@@ -705,11 +710,17 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     setTransactions((prev) => prev.filter((t) => t.id !== id));
+
+    if (user && isSupabaseConfigured && supabase) {
+      refreshData().catch((e) => console.warn('Error refrescando datos:', e));
+    }
   };
 
   // Cálculo de resúmenes por tarjeta
   const getWalletSummary = useCallback(
     (walletId: string) => {
+      const targetWallet = wallets.find((w) => w.id === walletId);
+      const isSavingsWallet = targetWallet?.type === 'savings';
       const txs = transactions.filter((t) => t.wallet_id === walletId);
 
       const res = {
@@ -720,22 +731,18 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       for (const tx of txs) {
         const { isToday, isThisMonth, isThisYear } = parseLocalDateParts(tx.date);
-
-        // Identificar transferencias internas hacia o desde ahorros (no son gastos de consumo ni ingresos externos)
-        const isSavingsTransfer =
-          !tx.concept?.toLowerCase().includes('7ds') &&
-          (tx.type === 'savings_deposit' ||
-            tx.type === 'savings_withdrawal' ||
-            tx.category_name === 'Reposición de Ahorro' ||
-            tx.category_name === 'Depósito Ahorro' ||
-            tx.category_name === 'Retiro de Ahorro' ||
-            tx.category_name === 'Inyección de Ahorro' ||
-            tx.concept?.toLowerCase().includes('aporte a ahorro') ||
-            tx.concept?.toLowerCase().includes('reposición al fondo de ahorro'));
-
-        const isInc = tx.type === 'income' && !isSavingsTransfer;
-        const isExp = tx.type === 'expense' && !isSavingsTransfer;
         const amt = Number(tx.amount) || 0;
+
+        let isInc = false;
+        let isExp = false;
+
+        if (isSavingsWallet) {
+          isInc = tx.type === 'savings_deposit' || tx.type === 'income';
+          isExp = tx.type === 'savings_withdrawal' || tx.type === 'expense';
+        } else {
+          isInc = tx.type === 'income';
+          isExp = tx.type === 'expense' || tx.type === 'savings_deposit';
+        }
 
         if (isToday) {
           if (isInc) res.daily.income += amt;
@@ -757,7 +764,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       return res;
     },
-    [transactions]
+    [transactions, wallets]
   );
 
   // Resumen global consolidado
@@ -782,22 +789,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     for (const tx of transactions) {
       const { isToday, isThisMonth, isThisYear } = parseLocalDateParts(tx.date);
-
-      // Identificar transferencias internas hacia o desde ahorros (no son gastos de consumo ni ingresos externos)
-      const isSavingsTransfer =
-        !tx.concept?.toLowerCase().includes('7ds') &&
-        (tx.type === 'savings_deposit' ||
-          tx.type === 'savings_withdrawal' ||
-          tx.category_name === 'Reposición de Ahorro' ||
-          tx.category_name === 'Depósito Ahorro' ||
-          tx.category_name === 'Retiro de Ahorro' ||
-          tx.category_name === 'Inyección de Ahorro' ||
-          tx.concept?.toLowerCase().includes('aporte a ahorro') ||
-          tx.concept?.toLowerCase().includes('reposición al fondo de ahorro'));
-
-      const isInc = tx.type === 'income' && !isSavingsTransfer;
-      const isExp = tx.type === 'expense' && !isSavingsTransfer;
       const amt = Number(tx.amount) || 0;
+
+      const isInc = tx.type === 'income';
+      const isExp = tx.type === 'expense';
 
       if (isToday) {
         if (isInc) daily.income += amt;
