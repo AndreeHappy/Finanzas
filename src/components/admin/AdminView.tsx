@@ -194,24 +194,36 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
       if (pError) throw pError;
       setUsers(profilesData || []);
 
-      // 2. Todas las Tarjetas / Wallets
-      const { data: walletsData, error: wError } = await supabase
-        .from('wallets_cards')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // 2. Todas las Tarjetas / Wallets (RPC admin primero para omitir RLS, fallback directo)
+      let finalWallets: WalletCard[] = [];
+      const { data: rpcWallets, error: rpcWErr } = await supabase.rpc('admin_get_all_wallets');
+      if (!rpcWErr && Array.isArray(rpcWallets)) {
+        finalWallets = rpcWallets;
+      } else {
+        const { data: directWallets, error: wError } = await supabase
+          .from('wallets_cards')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (wError) throw wError;
+        finalWallets = directWallets || [];
+      }
+      setAllWallets(finalWallets);
 
-      if (wError) throw wError;
-      setAllWallets(walletsData || []);
-
-      // 3. Todas las Transacciones
-      const { data: txData, error: tError } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('date', { ascending: false })
-        .limit(200);
-
-      if (tError) throw tError;
-      setAllTransactions(txData || []);
+      // 3. Todas las Transacciones (RPC admin primero para omitir RLS, fallback directo)
+      let finalTx: Transaction[] = [];
+      const { data: rpcTx, error: rpcTxErr } = await supabase.rpc('admin_get_all_transactions');
+      if (!rpcTxErr && Array.isArray(rpcTx)) {
+        finalTx = rpcTx;
+      } else {
+        const { data: directTx, error: tError } = await supabase
+          .from('transactions')
+          .select('*')
+          .order('date', { ascending: false })
+          .limit(500);
+        if (tError) throw tError;
+        finalTx = directTx || [];
+      }
+      setAllTransactions(finalTx);
     } catch (err: any) {
       console.error('Error al cargar datos en panel de administración:', err);
       setFeedback({

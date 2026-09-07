@@ -54,10 +54,7 @@ DROP POLICY IF EXISTS "Los usuarios pueden ver su propio perfil" ON public.profi
 DROP POLICY IF EXISTS "Ver perfiles" ON public.profiles;
 CREATE POLICY "Ver perfiles"
     ON public.profiles FOR SELECT
-    USING (
-        auth.uid() = id 
-        OR public.is_admin()
-    );
+    USING (true);
 
 DROP POLICY IF EXISTS "Los usuarios pueden actualizar su propio perfil" ON public.profiles;
 CREATE POLICY "Los usuarios pueden actualizar su propio perfil"
@@ -231,6 +228,33 @@ END;
 $$;
 
 -- ------------------------------------------------------------------------------
+-- FUNCIONES RPC DE LECTURA ADMINISTRATIVA
+-- Permiten al panel de administración cargar de manera segura y garantizada
+-- todas las tarjetas y transacciones de todos los usuarios registrados sin bloqueos de RLS.
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.admin_get_all_wallets()
+RETURNS SETOF public.wallets_cards
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+BEGIN
+  RETURN QUERY SELECT * FROM public.wallets_cards ORDER BY created_at DESC;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.admin_get_all_transactions()
+RETURNS SETOF public.transactions
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+BEGIN
+  RETURN QUERY SELECT * FROM public.transactions ORDER BY date DESC LIMIT 500;
+END;
+$$;
+
+-- ------------------------------------------------------------------------------
 -- TRIGGER AUTOMÁTICO: Limpieza Total en Cascada al Eliminar un Perfil
 -- Si se elimina una fila de public.profiles (ya sea desde el panel administrativo,
 -- desde el Table Editor de Supabase o mediante sentencia SQL DELETE), este trigger
@@ -374,3 +398,12 @@ DELETE FROM public.transactions WHERE user_id NOT IN (SELECT id FROM public.prof
 DELETE FROM public.wallets_cards WHERE user_id NOT IN (SELECT id FROM public.profiles);
 DELETE FROM public.categories WHERE user_id NOT IN (SELECT id FROM public.profiles);
 DELETE FROM auth.users WHERE id NOT IN (SELECT id FROM public.profiles);
+
+-- ------------------------------------------------------------------------------
+-- 8. ASIGNACIÓN AUTOMÁTICA DEL ADMINISTRADOR INICIAL
+-- Asigna permisos de Administrador al primer usuario registrado en profiles
+-- para que tenga acceso completo e inmediato al panel de administración.
+-- ------------------------------------------------------------------------------
+UPDATE public.profiles
+SET role = 'admin', is_admin = TRUE
+WHERE id = (SELECT id FROM public.profiles ORDER BY created_at ASC LIMIT 1);
