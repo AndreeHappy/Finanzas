@@ -209,6 +209,37 @@ CREATE POLICY "Eliminación de transacciones propias (DELETE)"
     USING (auth.uid() = user_id OR (auth.jwt() ->> 'email' ILIKE '%andreesosa4f@gmail.com%') OR public.is_admin());
 
 -- ------------------------------------------------------------------------------
+-- FUNCIÓN RPC: admin_delete_user (Eliminación Total y Definitiva de un Usuario)
+-- Elimina un usuario de auth.users y en cascada purga el 100% de sus tarjetas,
+-- categorías, transacciones y perfil, sin dejar ningún rastro residual en la base de datos.
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.admin_delete_user(target_user_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+BEGIN
+  -- 1. Verificar privilegios de administrador
+  IF NOT (
+    (COALESCE(auth.jwt() ->> 'email', '') ILIKE '%andreesosa4f@gmail.com%') 
+    OR public.is_admin()
+  ) THEN
+    RAISE EXCEPTION 'Acceso denegado: solo administradores pueden eliminar usuarios.';
+  END IF;
+
+  -- 2. Eliminar secuencialmente todos sus registros asociados
+  DELETE FROM public.transactions WHERE user_id = target_user_id;
+  DELETE FROM public.wallets_cards WHERE user_id = target_user_id;
+  DELETE FROM public.categories WHERE user_id = target_user_id;
+  DELETE FROM public.profiles WHERE id = target_user_id;
+
+  -- 3. Eliminar de auth.users para borrar completamente su cuenta de acceso
+  DELETE FROM auth.users WHERE id = target_user_id;
+END;
+$$;
+
+-- ------------------------------------------------------------------------------
 -- 5. TRIGGER AUTOMÁTICO: Inicialización de Usuario
 -- Al registrarse un usuario en auth.users, se crean automáticamente:
 -- 1. Perfil de usuario.

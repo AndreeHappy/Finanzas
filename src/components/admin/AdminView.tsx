@@ -536,15 +536,17 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
         const targetUserId = deleteConfirm.id;
 
         if (isSupabaseConfigured && supabase) {
-          // Eliminar transacciones del usuario
-          await supabase.from('transactions').delete().eq('user_id', targetUserId);
-          // Eliminar tarjetas del usuario
-          await supabase.from('wallets_cards').delete().eq('user_id', targetUserId);
-          // Eliminar categorías del usuario
-          await supabase.from('categories').delete().eq('user_id', targetUserId);
-          // Eliminar perfil
-          const { error } = await supabase.from('profiles').delete().eq('id', targetUserId);
-          if (error) throw error;
+          // 1. Intentar borrado atómico total en Postgres (incluye auth.users, tarjetas, movimientos y categorías)
+          const { error: rpcError } = await supabase.rpc('admin_delete_user', { target_user_id: targetUserId });
+
+          if (rpcError) {
+            // 2. Fallback secuencial tabla por tabla
+            await supabase.from('transactions').delete().eq('user_id', targetUserId);
+            await supabase.from('wallets_cards').delete().eq('user_id', targetUserId);
+            await supabase.from('categories').delete().eq('user_id', targetUserId);
+            const { error: pError } = await supabase.from('profiles').delete().eq('id', targetUserId);
+            if (pError) throw pError;
+          }
         }
 
         setUsers((prev) => prev.filter((u) => u.id !== targetUserId));
