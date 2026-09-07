@@ -583,6 +583,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const addTransaction = async (
     txData: Omit<Transaction, 'id' | 'user_id' | 'created_at'>
   ) => {
+    if (wallets.length === 0) {
+      throw new Error('No tienes tarjetas disponibles para registrar este movimiento. El sistema creará tus 3 tarjetas base automáticamente al recargar o iniciar sesión.');
+    }
+
     const sanitizedAmount = Math.abs(Number(txData.amount) || 0);
     if (sanitizedAmount <= 0) {
       throw new Error('El monto debe ser superior a cero.');

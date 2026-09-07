@@ -22,7 +22,6 @@ import {
   FloppyDisk,
   X,
   Plus,
-  Sparkle,
 } from '@phosphor-icons/react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -156,14 +155,6 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
   const [newTxDate, setNewTxDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [newTxNotes, setNewTxNotes] = useState('');
   const [isSubmittingNewTx, setIsSubmittingNewTx] = useState(false);
-
-  // Estado para creación de tarjetas masiva o individual
-  const [isFixingWallets, setIsFixingWallets] = useState(false);
-
-  // Detección reactiva de usuarios que no tienen ninguna tarjeta en el sistema
-  const usersWithoutWallets = useMemo(() => {
-    return users.filter((u) => !allWallets.some((w) => w.user_id === u.id));
-  }, [users, allWallets]);
 
   // Modal de confirmación de eliminación
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -463,163 +454,6 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
       });
     } finally {
       setIsSavingEdit(false);
-    }
-  };
-
-  // Crear tarjetas y categorías predeterminadas para un usuario específico (ej. Andree)
-  const handleCreateDefaultWalletsForUser = async (targetUser: UserProfile) => {
-    setIsFixingWallets(true);
-    try {
-      if (isSupabaseConfigured && supabase) {
-        const defaultWalletsToInsert = [
-          {
-            user_id: targetUser.id,
-            name: 'Tarjeta Digital Principal',
-            type: 'digital',
-            color_gradient: 'emerald',
-            card_number_suffix: '4821',
-            initial_balance: 0.0,
-          },
-          {
-            user_id: targetUser.id,
-            name: 'Billetera Efectivo',
-            type: 'cash',
-            color_gradient: 'mint',
-            initial_balance: 0.0,
-          },
-          {
-            user_id: targetUser.id,
-            name: 'Bóveda de Ahorros',
-            type: 'savings',
-            color_gradient: 'sapphire',
-            initial_balance: 0.0,
-          },
-        ];
-
-        const { data: createdWallets, error: wError } = await supabase
-          .from('wallets_cards')
-          .insert(defaultWalletsToInsert)
-          .select();
-
-        if (wError) throw wError;
-
-        // Categorías por defecto si no existen
-        const { data: existingCats } = await supabase
-          .from('categories')
-          .select('id')
-          .eq('user_id', targetUser.id);
-
-        if (!existingCats || existingCats.length === 0) {
-          const defaultCats = [
-            { user_id: targetUser.id, name: 'Alimentación', type: 'expense', icon_name: 'ForkKnife', color: '#f59e0b', is_system: false },
-            { user_id: targetUser.id, name: 'Transporte', type: 'expense', icon_name: 'Car', color: '#3b82f6', is_system: false },
-            { user_id: targetUser.id, name: 'Entretenimiento', type: 'expense', icon_name: 'GameController', color: '#ec4899', is_system: false },
-            { user_id: targetUser.id, name: 'Reposición de Ahorro', type: 'expense', icon_name: 'PiggyBank', color: '#06b6d4', is_system: false },
-            { user_id: targetUser.id, name: 'Otros Gastos', type: 'expense', icon_name: 'DotsThreeOutline', color: '#64748b', is_system: false },
-            { user_id: targetUser.id, name: 'Otros', type: 'income', icon_name: 'Tag', color: '#10b981', is_system: false },
-            { user_id: targetUser.id, name: 'Regalo', type: 'income', icon_name: 'Gift', color: '#8b5cf6', is_system: false },
-            { user_id: targetUser.id, name: 'Bonos', type: 'income', icon_name: 'TrendUp', color: '#f97316', is_system: false },
-            { user_id: targetUser.id, name: 'Retiro de Ahorro', type: 'income', icon_name: 'ArrowDownLeft', color: '#06b6d4', is_system: false },
-            { user_id: targetUser.id, name: 'Otros Ingresos', type: 'income', icon_name: 'Coins', color: '#14b8a6', is_system: false },
-          ];
-          await supabase.from('categories').insert(defaultCats);
-        }
-
-        if (createdWallets) {
-          setAllWallets((prev) => [...createdWallets, ...prev]);
-        }
-      }
-
-      await refreshFinanceData();
-      await loadDatabaseData();
-
-      setFeedback({
-        type: 'success',
-        message: `¡Tarjetas y categorías base creadas exitosamente para "${targetUser.full_name || targetUser.email}"!`,
-      });
-    } catch (err: any) {
-      console.error('Error al crear tarjetas para usuario:', err);
-      setFeedback({
-        type: 'error',
-        message: `Error al crear tarjetas: ${err?.message || 'Fallo de inserción'}`,
-      });
-    } finally {
-      setIsFixingWallets(false);
-    }
-  };
-
-  // Reparar automáticamente a todos los usuarios sin tarjetas
-  const handleAutoFixAllUsersWithoutWallets = async () => {
-    if (usersWithoutWallets.length === 0) return;
-    setIsFixingWallets(true);
-    let successCount = 0;
-    try {
-      for (const targetUser of usersWithoutWallets) {
-        if (isSupabaseConfigured && supabase) {
-          const defaultWalletsToInsert = [
-            {
-              user_id: targetUser.id,
-              name: 'Tarjeta Digital Principal',
-              type: 'digital',
-              color_gradient: 'emerald',
-              card_number_suffix: '4821',
-              initial_balance: 0.0,
-            },
-            {
-              user_id: targetUser.id,
-              name: 'Billetera Efectivo',
-              type: 'cash',
-              color_gradient: 'mint',
-              initial_balance: 0.0,
-            },
-            {
-              user_id: targetUser.id,
-              name: 'Bóveda de Ahorros',
-              type: 'savings',
-              color_gradient: 'sapphire',
-              initial_balance: 0.0,
-            },
-          ];
-          await supabase.from('wallets_cards').insert(defaultWalletsToInsert);
-
-          const { data: existingCats } = await supabase
-            .from('categories')
-            .select('id')
-            .eq('user_id', targetUser.id);
-
-          if (!existingCats || existingCats.length === 0) {
-            const defaultCats = [
-              { user_id: targetUser.id, name: 'Alimentación', type: 'expense', icon_name: 'ForkKnife', color: '#f59e0b', is_system: false },
-              { user_id: targetUser.id, name: 'Transporte', type: 'expense', icon_name: 'Car', color: '#3b82f6', is_system: false },
-              { user_id: targetUser.id, name: 'Entretenimiento', type: 'expense', icon_name: 'GameController', color: '#ec4899', is_system: false },
-              { user_id: targetUser.id, name: 'Reposición de Ahorro', type: 'expense', icon_name: 'PiggyBank', color: '#06b6d4', is_system: false },
-              { user_id: targetUser.id, name: 'Otros Gastos', type: 'expense', icon_name: 'DotsThreeOutline', color: '#64748b', is_system: false },
-              { user_id: targetUser.id, name: 'Otros', type: 'income', icon_name: 'Tag', color: '#10b981', is_system: false },
-              { user_id: targetUser.id, name: 'Regalo', type: 'income', icon_name: 'Gift', color: '#8b5cf6', is_system: false },
-              { user_id: targetUser.id, name: 'Bonos', type: 'income', icon_name: 'TrendUp', color: '#f97316', is_system: false },
-              { user_id: targetUser.id, name: 'Retiro de Ahorro', type: 'income', icon_name: 'ArrowDownLeft', color: '#06b6d4', is_system: false },
-              { user_id: targetUser.id, name: 'Otros Ingresos', type: 'income', icon_name: 'Coins', color: '#14b8a6', is_system: false },
-            ];
-            await supabase.from('categories').insert(defaultCats);
-          }
-          successCount++;
-        }
-      }
-
-      await refreshFinanceData();
-      await loadDatabaseData();
-
-      setFeedback({
-        type: 'success',
-        message: `¡Se inicializaron las tarjetas y categorías base para ${successCount} usuario(s) exitosamente!`,
-      });
-    } catch (err: any) {
-      setFeedback({
-        type: 'error',
-        message: `Error al procesar usuarios: ${err?.message || 'Error en Supabase'}`,
-      });
-    } finally {
-      setIsFixingWallets(false);
     }
   };
 
@@ -950,45 +784,6 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
         )}
       </AnimatePresence>
 
-      {/* Banner de Inicialización / Reparación para Usuarios sin Tarjetas */}
-      <AnimatePresence>
-        {usersWithoutWallets.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
-          >
-            <div className="flex items-start sm:items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                <Sparkle size={20} weight="fill" />
-              </div>
-              <div>
-                <p className="font-bold text-slate-900 dark:text-white">
-                  Se detectaron {usersWithoutWallets.length} usuario(s) sin tarjetas configuradas en Supabase (ej.{' '}
-                  <span className="text-amber-600 dark:text-amber-400 font-mono">
-                    {usersWithoutWallets.map((u) => u.full_name || u.email).join(', ')}
-                  </span>
-                  ).
-                </p>
-                <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
-                  Puedes inicializar automáticamente sus 3 tarjetas oficiales (Digital, Efectivo y Ahorros) y sus categorías base para que puedan operar inmediatamente.
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleAutoFixAllUsersWithoutWallets}
-              disabled={isFixingWallets}
-              className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shrink-0 transition-all cursor-pointer shadow-md shadow-amber-600/20 disabled:opacity-50"
-            >
-              <Sparkle size={15} weight="bold" />
-              <span>{isFixingWallets ? 'Inicializando...' : 'Inicializar Tarjetas Base'}</span>
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* KPI Cards de Base de Datos */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="glass-panel rounded-2xl p-4 shadow-sm">
@@ -1241,19 +1036,9 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
                         </td>
                         <td className="py-3 px-4 font-mono font-bold">
                           {userWalletsCount === 0 ? (
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-rose-500 font-bold text-xs">0</span>
-                              <button
-                                type="button"
-                                onClick={() => handleCreateDefaultWalletsForUser(u)}
-                                disabled={isFixingWallets}
-                                className="px-2 py-0.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 font-black text-[10px] uppercase flex items-center gap-1 cursor-pointer transition-all disabled:opacity-50"
-                                title="Crear las 3 tarjetas base para este usuario"
-                              >
-                                <Plus size={11} weight="bold" />
-                                <span>+ Crear Tarjetas</span>
-                              </button>
-                            </div>
+                            <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-white/[0.06] text-slate-500 dark:text-slate-400">
+                              0 (Auto al ingresar)
+                            </span>
                           ) : (
                             <button
                               type="button"
@@ -2216,26 +2001,17 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
                   </select>
                 </div>
 
-                {/* Seleccionar Tarjeta o Crear si no tiene */}
+                {/* Seleccionar Tarjeta o Aviso si no tiene */}
                 {(() => {
                   const targetUserWallets = allWallets.filter((w) => w.user_id === newTxUserId);
-                  const selectedUserObj = users.find((u) => u.id === newTxUserId);
 
                   if (targetUserWallets.length === 0) {
                     return (
-                      <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs space-y-2">
-                        <p className="font-bold">Este usuario no tiene ninguna tarjeta creada aún.</p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (selectedUserObj) handleCreateDefaultWalletsForUser(selectedUserObj);
-                          }}
-                          disabled={isFixingWallets}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                        >
-                          <Plus size={14} weight="bold" />
-                          <span>{isFixingWallets ? 'Creando...' : 'Crear 3 Tarjetas Base Ahora'}</span>
-                        </button>
+                      <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs">
+                        <p className="font-bold">Este usuario aún no cuenta con tarjetas en el sistema.</p>
+                        <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-1">
+                          Las 3 tarjetas base oficiales se crean de forma 100% automática en cuanto el usuario inicia sesión.
+                        </p>
                       </div>
                     );
                   }

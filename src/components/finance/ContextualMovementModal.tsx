@@ -108,6 +108,10 @@ export const ContextualMovementModal: React.FC<Props> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (wallets.length === 0) {
+      setError('Debes tener al menos una tarjeta activa para registrar movimientos.');
+      return;
+    }
     if (!concept.trim()) {
       setError('Ingresa un concepto o descripción para el movimiento.');
       return;

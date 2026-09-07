@@ -268,6 +268,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
   }, [recordActivity]);
 
+  // Asegurar que el usuario tenga sus 3 tarjetas base y 10 categorías oficiales
+  const ensureUserHasDefaultWalletsAndCategories = async (userId: string) => {
+    if (!isSupabaseConfigured || !supabase || !userId) return;
+    try {
+      // 1. Verificar si ya tiene tarjetas en Supabase
+      const { data: existingWallets } = await supabase
+        .from('wallets_cards')
+        .select('id')
+        .eq('user_id', userId)
+        .limit(1);
+
+      if (!existingWallets || existingWallets.length === 0) {
+        const defaultWalletsToInsert = [
+          {
+            user_id: userId,
+            name: 'Tarjeta Digital Principal',
+            type: 'digital',
+            color_gradient: 'emerald',
+            card_number_suffix: '4821',
+            initial_balance: 0.0,
+          },
+          {
+            user_id: userId,
+            name: 'Billetera Efectivo',
+            type: 'cash',
+            color_gradient: 'mint',
+            initial_balance: 0.0,
+          },
+          {
+            user_id: userId,
+            name: 'Bóveda de Ahorros',
+            type: 'savings',
+            color_gradient: 'sapphire',
+            initial_balance: 0.0,
+          },
+        ];
+        await supabase.from('wallets_cards').insert(defaultWalletsToInsert);
+      }
+
+      // 2. Verificar si ya tiene categorías
+      const { data: existingCats } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('user_id', userId)
+        .limit(1);
+
+      if (!existingCats || existingCats.length === 0) {
+        const defaultCategoriesToInsert = [
+          { user_id: userId, name: 'Alimentación', type: 'expense', icon_name: 'ForkKnife', color: '#f59e0b', is_system: false },
+          { user_id: userId, name: 'Transporte', type: 'expense', icon_name: 'Car', color: '#3b82f6', is_system: false },
+          { user_id: userId, name: 'Entretenimiento', type: 'expense', icon_name: 'GameController', color: '#ec4899', is_system: false },
+          { user_id: userId, name: 'Reposición de Ahorro', type: 'expense', icon_name: 'PiggyBank', color: '#06b6d4', is_system: false },
+          { user_id: userId, name: 'Otros Gastos', type: 'expense', icon_name: 'DotsThreeOutline', color: '#64748b', is_system: false },
+          { user_id: userId, name: 'Otros', type: 'income', icon_name: 'Tag', color: '#10b981', is_system: false },
+          { user_id: userId, name: 'Regalo', type: 'income', icon_name: 'Gift', color: '#8b5cf6', is_system: false },
+          { user_id: userId, name: 'Bonos', type: 'income', icon_name: 'TrendUp', color: '#f97316', is_system: false },
+          { user_id: userId, name: 'Retiro de Ahorro', type: 'income', icon_name: 'ArrowDownLeft', color: '#06b6d4', is_system: false },
+          { user_id: userId, name: 'Otros Ingresos', type: 'income', icon_name: 'Coins', color: '#14b8a6', is_system: false },
+        ];
+        await supabase.from('categories').insert(defaultCategoriesToInsert);
+      }
+    } catch (err) {
+      console.warn('Error inicializando tarjetas o categorías por defecto:', err);
+    }
+  };
+
   const fetchProfile = async (userId: string, email: string) => {
     if (!supabase) return;
     try {
@@ -298,6 +364,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await supabase.from('profiles').insert(defaultProf);
         setProfile(defaultProf);
       }
+
+      // Auto-inicializar tarjetas y categorías si el usuario no las tiene
+      await ensureUserHasDefaultWalletsAndCategories(userId);
     } catch (err) {
       console.error('Error in fetchProfile:', err);
     }
@@ -318,6 +387,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         recordActivity();
         setUser({ id: data.user.id, email: data.user.email || '' });
         await fetchProfile(data.user.id, data.user.email || '');
+        await ensureUserHasDefaultWalletsAndCategories(data.user.id);
       }
       return {};
     } else {
@@ -366,6 +436,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           created_at: new Date().toISOString(),
         };
         await supabase.from('profiles').upsert(prof);
+        // Crear inmediatamente las 3 tarjetas oficiales y las 10 categorías en Supabase
+        await ensureUserHasDefaultWalletsAndCategories(data.user.id);
         setUser({ id: data.user.id, email: data.user.email || '' });
         setProfile(prof);
         recordActivity();
