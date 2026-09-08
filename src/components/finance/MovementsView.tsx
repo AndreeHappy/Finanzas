@@ -16,10 +16,13 @@ import {
   Clock,
   DeviceMobile,
   Money,
+  PencilSimple,
 } from '@phosphor-icons/react';
 import { useFinance } from '../../context/FinanceContext';
 import { parseLocalDateParts } from '../../utils/date';
 import { ContextualMovementModal } from './ContextualMovementModal';
+import { EditMovementModal } from './EditMovementModal';
+import type { Transaction } from '../../types';
 
 export const MovementsView: React.FC = () => {
   const {
@@ -27,6 +30,7 @@ export const MovementsView: React.FC = () => {
     categories,
     transactions,
     deleteTransaction,
+    updateTransaction,
     addTransaction,
     selectedWallet,
   } = useFinance();
@@ -39,6 +43,7 @@ export const MovementsView: React.FC = () => {
   const [pageSize, setPageSize] = useState<number | 'all'>(5);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [expandedTxIds, setExpandedTxIds] = useState<Set<string>>(new Set());
 
   const toggleExpand = (id: string) => {
@@ -598,6 +603,19 @@ export const MovementsView: React.FC = () => {
                         )}
                       </span>
 
+                      {/* Botón rápido de editar en la fila */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingTx(tx);
+                        }}
+                        title="Editar movimiento"
+                        className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors cursor-pointer"
+                      >
+                        <PencilSimple size={16} weight="bold" />
+                      </button>
+
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
                         {isExpanded ? (
                           <CaretUp size={16} weight="bold" />
@@ -665,14 +683,27 @@ export const MovementsView: React.FC = () => {
                             </p>
                           </div>
 
-                          {/* Botón de Eliminar Registro a la Derecha */}
-                          <div className="flex justify-end pt-1">
+                          {/* Botones de Acción: Editar y Eliminar Registro */}
+                          <div className="flex items-center justify-end gap-2 pt-1">
                             <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingTx(tx);
+                              }}
+                              className="px-3.5 py-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                            >
+                              <PencilSimple size={14} weight="bold" />
+                              <span>Editar Registro</span>
+                            </button>
+
+                            <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 deleteTransaction(tx.id);
                               }}
-                              className="px-3.5 py-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                              className="px-3.5 py-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
                             >
                               <Trash size={14} weight="bold" />
                               <span>Eliminar Registro</span>
@@ -768,6 +799,18 @@ export const MovementsView: React.FC = () => {
         wallets={wallets}
         categories={categories}
         onAddTransaction={addTransaction}
+      />
+
+      {/* Modal para Editar Movimiento Existente */}
+      <EditMovementModal
+        isOpen={Boolean(editingTx)}
+        onClose={() => setEditingTx(null)}
+        transaction={editingTx}
+        wallets={wallets}
+        categories={categories}
+        onSave={async (id, updates) => {
+          await updateTransaction(id, updates);
+        }}
       />
     </div>
   );

@@ -687,10 +687,26 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
     if (user && isSupabaseConfigured && supabase) {
       try {
-        const { error } = await supabase.from('transactions').update(updates).eq('id', id);
-        if (error) throw error;
-      } catch (err) {
+        const payload: Record<string, any> = {};
+        if (updates.concept !== undefined) payload.concept = updates.concept.trim();
+        if (updates.amount !== undefined) payload.amount = Math.abs(Number(updates.amount) || 0);
+        if (updates.type !== undefined) payload.type = updates.type;
+        if (updates.wallet_id !== undefined) payload.wallet_id = updates.wallet_id;
+        if (updates.category_id !== undefined) {
+          payload.category_id = isValidUUID(updates.category_id) ? updates.category_id : null;
+        }
+        if (updates.category_name !== undefined) payload.category_name = updates.category_name.trim() || 'General';
+        if (updates.date !== undefined) payload.date = updates.date;
+        if (updates.notes !== undefined) payload.notes = updates.notes?.trim() || null;
+
+        const { error } = await supabase.from('transactions').update(payload).eq('id', id);
+        if (error) {
+          console.error('Error actualizando transacción en Supabase:', error);
+          throw new Error(error.message || 'Error al actualizar movimiento en base de datos');
+        }
+      } catch (err: any) {
         console.warn('Error actualizando transacción en Supabase:', err);
+        throw err;
       }
     }
 
@@ -699,7 +715,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
 
     if (user && isSupabaseConfigured && supabase) {
-      refreshData().catch((e) => console.warn('Error refrescando datos:', e));
+      await refreshData().catch((e) => console.warn('Error refrescando datos:', e));
     }
   };
 
