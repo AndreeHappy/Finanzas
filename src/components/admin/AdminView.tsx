@@ -1357,7 +1357,7 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
                         ? 'Aporte Ahorro'
                         : 'Retiro Ahorro';
 
-                    const isPositive = t.type === 'income' || t.type === 'savings_withdrawal';
+                    const isPositive = t.type === 'income';
 
                     return (
                       <tr key={t.id} className="hover:bg-slate-50/70 dark:hover:bg-white/[0.02] transition-colors">

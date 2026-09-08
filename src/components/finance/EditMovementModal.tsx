@@ -66,8 +66,11 @@ export const EditMovementModal: React.FC<EditMovementModalProps> = ({
 
   // Filtrar categorías según tipo de movimiento si aplica
   const filteredCategories = categories.filter((c) => {
-    if (movementType === 'income' || movementType === 'savings_withdrawal') {
+    if (movementType === 'income') {
       return c.type === 'income';
+    }
+    if (movementType === 'savings_deposit' || movementType === 'savings_withdrawal') {
+      return true;
     }
     return c.type === 'expense';
   });
@@ -263,7 +266,7 @@ export const EditMovementModal: React.FC<EditMovementModalProps> = ({
                       : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.04]'
                   }`}
                 >
-                  <ArrowDownLeft size={14} weight="bold" />
+                  <ArrowUpRight size={14} weight="bold" />
                   <span>Retiro Ahorro</span>
                 </button>
               </div>

@@ -93,9 +93,9 @@ export const MovementsView: React.FC = () => {
 
     // 1.2 Filtrado por tipo (Todos | Solo Gastos | Solo Ingresos)
     if (filterType === 'expense') {
-      result = result.filter((t) => t.type === 'expense' || t.type === 'savings_deposit');
+      result = result.filter((t) => t.type === 'expense' || t.type === 'savings_deposit' || t.type === 'savings_withdrawal');
     } else if (filterType === 'income') {
-      result = result.filter((t) => t.type === 'income' || t.type === 'savings_withdrawal');
+      result = result.filter((t) => t.type === 'income');
     }
 
     return result;
@@ -478,8 +478,18 @@ export const MovementsView: React.FC = () => {
                   catNameLower === 'inyección de ahorro' ||
                   (conceptLower.includes('retiro') && conceptLower.includes('ahorro')));
 
-              const isIncome = (tx.type === 'income' || isSavingsWithdrawal) && !isSavingsDeposit;
               const wallet = wallets.find((w) => w.id === tx.wallet_id);
+              const isSavingsWalletTx = wallet?.type === 'savings' || tx.type === 'savings_withdrawal';
+
+              // En la cuenta de ahorro, un retiro es una salida/deducción (-S/.)
+              const isSavingsWithdrawalFromSavings = isSavingsWithdrawal && isSavingsWalletTx;
+
+              // En la cuenta digital/efectivo receptora, es un ingreso (+S/.)
+              const isIncome =
+                (tx.type === 'income' || (isSavingsWithdrawal && !isSavingsWalletTx)) &&
+                !isSavingsDeposit &&
+                !isSavingsWithdrawalFromSavings;
+
               const resolvedCat = resolveCategory(tx);
               const regNumber = txIndexMap.get(tx.id) ?? 1;
               const isExpanded = expandedTxIds.has(tx.id);
@@ -511,11 +521,13 @@ export const MovementsView: React.FC = () => {
                   >
                     {/* Lado Izquierdo: Icono Flecha/Cerdito + Concepto + Badges */}
                     <div className="flex items-center gap-3.5 min-w-0">
-                      {/* Icono: Cerdito para Aporte al Ahorro, Flecha Verde para Ingreso, Flecha Roja para Gasto */}
+                      {/* Icono: Cerdito para Aporte al Ahorro, Flecha Verde para Ingreso, Flecha Roja para Gasto/Retiro */}
                       <div
                         className={`w-11 h-11 rounded-2xl shrink-0 flex items-center justify-center border transition-all ${
                           isSavingsDeposit
                             ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                            : isSavingsWithdrawalFromSavings
+                            ? 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
                             : isIncome
                             ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
                             : 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
@@ -523,6 +535,8 @@ export const MovementsView: React.FC = () => {
                       >
                         {isSavingsDeposit ? (
                           <PiggyBank size={22} weight="bold" />
+                        ) : isSavingsWithdrawalFromSavings ? (
+                          <ArrowUpRight size={22} weight="bold" />
                         ) : isIncome ? (
                           <ArrowDownLeft size={22} weight="bold" />
                         ) : (
@@ -585,6 +599,8 @@ export const MovementsView: React.FC = () => {
                         className={`text-base sm:text-lg font-black font-mono tracking-tight ${
                           isSavingsDeposit
                             ? 'text-amber-600 dark:text-amber-400'
+                            : isSavingsWithdrawalFromSavings
+                            ? 'text-rose-600 dark:text-rose-400'
                             : isIncome
                             ? 'text-emerald-600 dark:text-emerald-400'
                             : 'text-rose-600 dark:text-rose-400'
@@ -594,6 +610,10 @@ export const MovementsView: React.FC = () => {
                           <>
                             <span className="text-xs font-semibold mr-1 uppercase text-amber-500/90 tracking-wider">Ahorro</span>
                             S/. {Number(tx.amount).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                          </>
+                        ) : isSavingsWithdrawalFromSavings ? (
+                          <>
+                            -S/. {Number(tx.amount).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
                           </>
                         ) : (
                           <>

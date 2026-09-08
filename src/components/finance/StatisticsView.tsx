@@ -453,28 +453,28 @@ export const StatisticsView: React.FC = () => {
                   <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
                     {/* Badge Superior Unificado: Cero colisiones */}
                     <div className="flex items-center justify-center gap-1 font-mono font-black text-[9px] bg-slate-100/90 dark:bg-white/[0.06] px-1.5 py-0.5 rounded-md border border-slate-200/80 dark:border-white/10 shadow-xs whitespace-nowrap mb-0.5">
-                      <span className="text-emerald-600 dark:text-emerald-400">+{m.income.toFixed(0)}</span>
+                      <span className="text-emerald-500 dark:text-emerald-300">+{m.income.toFixed(0)}</span>
                       <span className="text-slate-400 text-[8px]">/</span>
-                      <span className="text-rose-600 dark:text-rose-400">-{m.expense.toFixed(0)}</span>
+                      <span className="text-rose-500 dark:text-rose-300">-{m.expense.toFixed(0)}</span>
                     </div>
 
                     <div className="w-full flex items-end justify-center gap-1.5 h-24 sm:h-28 relative">
-                      {/* Barra Ingreso (Verde) */}
+                      {/* Barra Ingreso (Verde Pastel) */}
                       <motion.div
                         initial={{ height: 0 }}
                         animate={{ height: `${incHeight}%` }}
                         transition={{ duration: 0.6, delay: idx * 0.1 }}
                         title={`Ingresos: S/. ${m.income.toFixed(2)}`}
-                        className="w-1/2 max-w-[20px] bg-emerald-500 hover:bg-emerald-400 rounded-t-md shadow-xs cursor-pointer transition-colors"
+                        className="w-1/2 max-w-[20px] bg-[#34d399] hover:bg-[#6ee7b7] rounded-t-md shadow-xs cursor-pointer transition-colors"
                       />
 
-                      {/* Barra Gasto (Rojo) */}
+                      {/* Barra Gasto (Rojo Pastel) */}
                       <motion.div
                         initial={{ height: 0 }}
                         animate={{ height: `${expHeight}%` }}
                         transition={{ duration: 0.6, delay: idx * 0.1 + 0.05 }}
                         title={`Gastos: S/. ${m.expense.toFixed(2)}`}
-                        className="w-1/2 max-w-[20px] bg-rose-500 hover:bg-rose-400 rounded-t-md shadow-xs cursor-pointer transition-colors"
+                        className="w-1/2 max-w-[20px] bg-[#fb7185] hover:bg-[#fda4af] rounded-t-md shadow-xs cursor-pointer transition-colors"
                       />
                     </div>
 
@@ -582,7 +582,7 @@ export const StatisticsView: React.FC = () => {
                         12 -
                         ((d.cumNet - dailyTimelineData.minNet) / (dailyTimelineData.netRange || 1)) * 76;
 
-                      const strokeColor = d.net >= 0 ? '#10b981' : '#f43f5e';
+                      const strokeColor = d.net >= 0 ? '#34d399' : '#fb7185';
 
                       return (
                         <line
@@ -621,7 +621,7 @@ export const StatisticsView: React.FC = () => {
                               cx={x}
                               cy={y}
                               r="7"
-                              className={d.net >= 0 ? "fill-emerald-500/20 stroke-emerald-500" : "fill-rose-500/20 stroke-rose-500"}
+                              className={d.net >= 0 ? "fill-emerald-400/20 stroke-[#34d399]" : "fill-rose-400/20 stroke-[#fb7185]"}
                               strokeWidth="1.5"
                             />
                           )}
@@ -631,7 +631,7 @@ export const StatisticsView: React.FC = () => {
                             cx={x}
                             cy={y}
                             r={isSelected ? "4.5" : "3.5"}
-                            fill={d.net >= 0 ? '#10b981' : '#f43f5e'}
+                            fill={d.net >= 0 ? '#34d399' : '#fb7185'}
                             stroke="#ffffff"
                             strokeWidth="1.5"
                           />
@@ -647,8 +647,8 @@ export const StatisticsView: React.FC = () => {
                     return (
                       <div className="absolute top-1 left-1/2 -translate-x-1/2 z-20 px-2 py-1 rounded-lg bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[9px] font-mono shadow-md border border-zinc-800 dark:border-zinc-200 pointer-events-none flex items-center gap-2 whitespace-nowrap">
                         <span className="font-bold">Día {d.day}:</span>
-                        <span className="text-emerald-500">+{d.income.toFixed(0)}</span>
-                        <span className="text-rose-500">-{d.expense.toFixed(0)}</span>
+                        <span className="text-[#34d399]">+{d.income.toFixed(0)}</span>
+                        <span className="text-[#fb7185]">-{d.expense.toFixed(0)}</span>
                         <span className="font-black">
                           Flujo: {d.net >= 0 ? '+' : ''}{d.net.toFixed(0)}
                         </span>
@@ -907,11 +907,11 @@ export const StatisticsView: React.FC = () => {
                             Evolución Mensual Comparada
                           </span>
                           <div className="flex items-center gap-3 text-xs font-bold">
-                            <span className="flex items-center gap-1.5 text-emerald-600">
-                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Ingresos
+                            <span className="flex items-center gap-1.5 text-emerald-500 dark:text-emerald-400">
+                              <span className="w-2.5 h-2.5 rounded-full bg-[#34d399]" /> Ingresos
                             </span>
-                            <span className="flex items-center gap-1.5 text-rose-600">
-                              <span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Gastos
+                            <span className="flex items-center gap-1.5 text-rose-500 dark:text-rose-400">
+                              <span className="w-2.5 h-2.5 rounded-full bg-[#fb7185]" /> Gastos
                             </span>
                           </div>
                         </div>
@@ -925,9 +925,9 @@ export const StatisticsView: React.FC = () => {
                               <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
                                 {/* Badge Superior Unificado exactamente como en la vista principal para evitar cualquier colisión */}
                                 <div className="flex items-center justify-center gap-1.5 font-mono font-black text-[11px] sm:text-xs bg-white dark:bg-zinc-900 px-2 sm:px-2.5 py-1 rounded-xl border border-slate-200/80 dark:border-white/10 shadow-xs whitespace-nowrap mb-1">
-                                  <span className="text-emerald-600 dark:text-emerald-400">+{m.income.toFixed(0)}</span>
+                                  <span className="text-emerald-500 dark:text-emerald-300">+{m.income.toFixed(0)}</span>
                                   <span className="text-slate-300 dark:text-white/20">/</span>
-                                  <span className="text-rose-600 dark:text-rose-400">-{m.expense.toFixed(0)}</span>
+                                  <span className="text-rose-500 dark:text-rose-300">-{m.expense.toFixed(0)}</span>
                                 </div>
 
                                 <div className="w-full flex items-end justify-center gap-2 sm:gap-3 h-40">
@@ -938,7 +938,7 @@ export const StatisticsView: React.FC = () => {
                                       animate={{ height: `${incHeight}%` }}
                                       transition={{ duration: 0.5, delay: idx * 0.08 }}
                                       title={`Ingresos: S/. ${m.income.toFixed(2)}`}
-                                      className="w-full bg-emerald-500 hover:bg-emerald-400 rounded-t-xl shadow-md shadow-emerald-500/20 cursor-pointer transition-colors"
+                                      className="w-full bg-[#34d399] hover:bg-[#6ee7b7] rounded-t-xl shadow-md shadow-emerald-400/20 cursor-pointer transition-colors"
                                     />
                                   </div>
 
@@ -949,7 +949,7 @@ export const StatisticsView: React.FC = () => {
                                       animate={{ height: `${expHeight}%` }}
                                       transition={{ duration: 0.5, delay: idx * 0.08 + 0.04 }}
                                       title={`Gastos: S/. ${m.expense.toFixed(2)}`}
-                                      className="w-full bg-rose-500 hover:bg-rose-400 rounded-t-xl shadow-md shadow-rose-500/20 cursor-pointer transition-colors"
+                                      className="w-full bg-[#fb7185] hover:bg-[#fda4af] rounded-t-xl shadow-md shadow-rose-400/20 cursor-pointer transition-colors"
                                     />
                                   </div>
                                 </div>
@@ -1063,11 +1063,11 @@ export const StatisticsView: React.FC = () => {
                             Trayectoria Día a Día (Día 1 al {dailyTimelineData.days[dailyTimelineData.days.length - 1]?.day || now.getDate()})
                           </span>
                           <div className="flex items-center gap-3 text-xs font-bold">
-                            <span className="flex items-center gap-1.5 text-emerald-600">
-                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Ganancia / Superávit
+                            <span className="flex items-center gap-1.5 text-emerald-500 dark:text-emerald-400">
+                              <span className="w-2.5 h-2.5 rounded-full bg-[#34d399]" /> Ganancia / Superávit
                             </span>
-                            <span className="flex items-center gap-1.5 text-rose-600">
-                              <span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Pérdida / Consumo
+                            <span className="flex items-center gap-1.5 text-rose-500 dark:text-rose-400">
+                              <span className="w-2.5 h-2.5 rounded-full bg-[#fb7185]" /> Pérdida / Consumo
                             </span>
                           </div>
                         </div>
@@ -1117,7 +1117,7 @@ export const StatisticsView: React.FC = () => {
                                     20 -
                                     ((d.cumNet - dailyTimelineData.minNet) / (dailyTimelineData.netRange || 1)) * 120;
 
-                                  const strokeColor = d.net >= 0 ? '#10b981' : '#f43f5e';
+                                  const strokeColor = d.net >= 0 ? '#34d399' : '#fb7185';
 
                                   return (
                                     <line
@@ -1156,7 +1156,7 @@ export const StatisticsView: React.FC = () => {
                                           cx={x}
                                           cy={y}
                                           r={isSelected ? "9" : "8"}
-                                          className={isPeak ? "fill-rose-500/20 stroke-rose-500 animate-pulse" : "fill-emerald-500/20 stroke-emerald-500"}
+                                          className={isPeak ? "fill-rose-400/20 stroke-[#fb7185] animate-pulse" : "fill-emerald-400/20 stroke-[#34d399]"}
                                           strokeWidth="2"
                                         />
                                       )}
@@ -1164,7 +1164,7 @@ export const StatisticsView: React.FC = () => {
                                         cx={x}
                                         cy={y}
                                         r={isPeak ? "5.5" : "4"}
-                                        fill={d.net >= 0 ? '#10b981' : '#f43f5e'}
+                                        fill={d.net >= 0 ? '#34d399' : '#fb7185'}
                                         stroke="#ffffff"
                                         strokeWidth="2"
                                       />
@@ -1180,8 +1180,8 @@ export const StatisticsView: React.FC = () => {
                                 return (
                                   <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 px-3 py-1.5 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-mono shadow-xl border border-zinc-800 dark:border-zinc-200 pointer-events-none flex items-center gap-3">
                                     <span className="font-bold">Día {d.day}:</span>
-                                    <span className="text-emerald-500 font-bold">+{d.income.toFixed(2)}</span>
-                                    <span className="text-rose-500 font-bold">-{d.expense.toFixed(2)}</span>
+                                    <span className="text-[#34d399] font-bold">+{d.income.toFixed(2)}</span>
+                                    <span className="text-[#fb7185] font-bold">-{d.expense.toFixed(2)}</span>
                                     <span className="font-black">
                                       Flujo: {d.net >= 0 ? '+' : ''}{d.net.toFixed(2)}
                                     </span>
