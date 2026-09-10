@@ -62,30 +62,17 @@ export const MovementsView: React.FC = () => {
   const rawFilteredTransactions = useMemo(() => {
     let result = [...transactions];
 
+    const savingsWalletIds = new Set(
+      wallets.filter((w) => w.type === 'savings').map((w) => w.id)
+    );
+
     // 1.1 Filtrado por cuenta / tarjeta
     if (filterWalletId === 'free_spending') {
-      // Tarjetas de gasto libre (digital y efectivo): excluir únicamente movimientos de la bóveda de ahorro
-      const savingsWalletIds = new Set(
-        wallets.filter((w) => w.type === 'savings').map((w) => w.id)
-      );
-      result = result.filter(
-        (t) =>
-          !savingsWalletIds.has(t.wallet_id) &&
-          t.type !== 'savings_deposit' &&
-          t.type !== 'savings_withdrawal'
-      );
+      // Tarjetas de gasto libre (digital y efectivo): excluir únicamente cuentas de la bóveda de ahorro
+      result = result.filter((t) => !savingsWalletIds.has(t.wallet_id));
     } else if (filterWalletId === 'savings') {
-      // Solo ahorros (depósitos, retiros o asignados a la bóveda)
-      const savingsWalletIds = new Set(
-        wallets.filter((w) => w.type === 'savings').map((w) => w.id)
-      );
-      result = result.filter(
-        (t) =>
-          savingsWalletIds.has(t.wallet_id) ||
-          t.type === 'savings_deposit' ||
-          t.type === 'savings_withdrawal' ||
-          (t.category_name && t.category_name.toLowerCase().includes('ahorro'))
-      );
+      // Solo ahorros: ÚNICAMENTE movimientos pertenecientes a cuentas de ahorro
+      result = result.filter((t) => savingsWalletIds.has(t.wallet_id));
     } else if (filterWalletId !== 'all') {
       // Tarjeta específica
       result = result.filter((t) => t.wallet_id === filterWalletId);
@@ -93,9 +80,21 @@ export const MovementsView: React.FC = () => {
 
     // 1.2 Filtrado por tipo (Todos | Solo Gastos | Solo Ingresos)
     if (filterType === 'expense') {
-      result = result.filter((t) => t.type === 'expense' || t.type === 'savings_deposit' || t.type === 'savings_withdrawal');
+      result = result.filter((t) => {
+        const isSavingsTx = savingsWalletIds.has(t.wallet_id);
+        if (isSavingsTx) {
+          return t.type === 'savings_withdrawal' || t.type === 'expense';
+        }
+        return t.type === 'expense';
+      });
     } else if (filterType === 'income') {
-      result = result.filter((t) => t.type === 'income');
+      result = result.filter((t) => {
+        const isSavingsTx = savingsWalletIds.has(t.wallet_id);
+        if (isSavingsTx) {
+          return t.type === 'savings_deposit' || t.type === 'income';
+        }
+        return t.type === 'income';
+      });
     }
 
     return result;
@@ -480,19 +479,44 @@ export const MovementsView: React.FC = () => {
                   (conceptLower.includes('retiro') && conceptLower.includes('ahorro')));
 
               const wallet = wallets.find((w) => w.id === tx.wallet_id);
-              const isSavingsWalletTx = wallet?.type === 'savings' || tx.type === 'savings_withdrawal';
+              const isSavingsWalletTx = wallet?.type === 'savings';
 
-              // En la cuenta de ahorro, un retiro es una salida/deducción (-S/.)
-              const isSavingsWithdrawalFromSavings = isSavingsWithdrawal && isSavingsWalletTx;
+              // Es una transacción vinculada a la operativa de ahorro
+              const isSavingsRelated = isSavingsWalletTx || isSavingsDeposit || isSavingsWithdrawal;
 
-              // En la cuenta de ahorro, un aporte es un ingreso (+S/.)
-              const isSavingsDepositToSavings = isSavingsDeposit && isSavingsWalletTx;
+              // Determinar si suma o resta de esta tarjeta:
+              // - En cuenta de ahorro: depósito es suma (+), retiro es resta (-)
+              // - En cuenta libre (digital/efectivo): retiro de ahorro entrante es suma (+), aporte enviado es resta (-)
+              let isIncome = false;
+              if (isSavingsWalletTx) {
+                isIncome = isSavingsDeposit || tx.type === 'income';
+              } else {
+                if (isSavingsWithdrawal) {
+                  isIncome = true;
+                } else if (isSavingsDeposit) {
+                  isIncome = false;
+                } else {
+                  isIncome = tx.type === 'income';
+                }
+              }
 
-              // En la cuenta digital/efectivo receptora, el retiro de ahorro es un ingreso (+S/.)
-              const isIncome =
-                (tx.type === 'income' || (isSavingsWithdrawal && !isSavingsWalletTx) || isSavingsDepositToSavings) &&
-                !isSavingsWithdrawalFromSavings &&
-                !(isSavingsDeposit && !isSavingsWalletTx);
+              // Color del Monto según especificación:
+              // - En cuenta de ahorro: color mostaza / ámbar diferenciador
+              // - En libre para gastar:
+              //    * Si entra monto desde el ahorro al digital: verde (+S/.)
+              //    * Si sale monto hacia el ahorro desde el digital: amarillo/mostaza (-S/.)
+              //    * Ingreso estándar: verde (+S/.)
+              //    * Gasto estándar: rojo (-S/.)
+              let amountColorClass = 'text-rose-600 dark:text-rose-400';
+              if (isSavingsWalletTx) {
+                amountColorClass = 'text-amber-500 dark:text-amber-400 font-bold';
+              } else if (isSavingsWithdrawal) {
+                amountColorClass = 'text-emerald-600 dark:text-emerald-400 font-bold';
+              } else if (isSavingsDeposit) {
+                amountColorClass = 'text-amber-500 dark:text-amber-400 font-bold';
+              } else if (isIncome) {
+                amountColorClass = 'text-emerald-600 dark:text-emerald-400';
+              }
 
               const resolvedCat = resolveCategory(tx);
               const regNumber = txIndexMap.get(tx.id) ?? 1;
@@ -525,22 +549,20 @@ export const MovementsView: React.FC = () => {
                   >
                     {/* Lado Izquierdo: Icono Flecha/Cerdito + Concepto + Badges */}
                     <div className="flex items-center gap-3.5 min-w-0">
-                      {/* Icono: Cerdito para Aporte al Ahorro, Flecha Verde para Ingreso, Flecha Roja para Gasto/Retiro */}
+                      {/* Icono: Cerdito para todo lo de ahorro (Ahorro, o transferencias de/hacia ahorro), Flecha Verde para Ingreso, Flecha Roja para Gasto */}
                       <div
-                        className={`w-11 h-11 rounded-2xl shrink-0 flex items-center justify-center border transition-all ${
-                          isSavingsDeposit
-                            ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
-                            : isSavingsWithdrawalFromSavings
-                            ? 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
+                        className={`w-11 h-11 rounded-2xl shrink-0 flex items-center justify-center border transition-all select-none ${
+                          isSavingsRelated
+                            ? isSavingsWithdrawal && !isSavingsWalletTx
+                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                              : 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
                             : isIncome
                             ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
                             : 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
                         }`}
                       >
-                        {isSavingsDeposit ? (
+                        {isSavingsRelated ? (
                           <PiggyBank size={22} weight="bold" />
-                        ) : isSavingsWithdrawalFromSavings ? (
-                          <ArrowUpRight size={22} weight="bold" />
                         ) : isIncome ? (
                           <ArrowDownLeft size={22} weight="bold" />
                         ) : (
@@ -600,11 +622,7 @@ export const MovementsView: React.FC = () => {
                     {/* Lado Derecho: Monto y Caret Expand/Collapse */}
                     <div className="flex items-center gap-3 shrink-0 pl-3">
                       <span
-                        className={`text-base sm:text-lg font-black font-mono tracking-tight ${
-                          isIncome
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-rose-600 dark:text-rose-400'
-                        }`}
+                        className={`text-base sm:text-lg font-black font-mono tracking-tight ${amountColorClass}`}
                       >
                         {isIncome ? '+' : '-'}S/.{' '}
                         {Number(tx.amount).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
@@ -755,29 +773,29 @@ export const MovementsView: React.FC = () => {
             </div>
           </div>
 
-          {/* Botones de Paginación Inteligente con puntos suspensivos (1 - 2 - 3 - ... - 11) */}
+          {/* Botones de Paginación Inteligente con puntos suspensivos (1 - 2 - 3 - 4 - ... - 11) */}
           {pageSize !== 'all' && totalPages > 1 && (() => {
             const getPaginationPages = (current: number, total: number): (number | string)[] => {
-              if (total <= 6) {
+              if (total <= 7) {
                 return Array.from({ length: total }, (_, i) => i + 1);
               }
-              if (current <= 3) {
-                return [1, 2, 3, '...', total];
+              if (current <= 4) {
+                return [1, 2, 3, 4, 5, '...', total];
               }
-              if (current >= total - 2) {
-                return [1, '...', total - 2, total - 1, total];
+              if (current >= total - 3) {
+                return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
               }
               return [1, '...', current - 1, current, current + 1, '...', total];
             };
 
             return (
-              <div className="flex items-center justify-center gap-1 bg-slate-200/80 dark:bg-white/[0.06] p-1 rounded-xl mx-auto sm:mx-0">
+              <div className="flex items-center justify-center gap-1 bg-slate-200/80 dark:bg-white/[0.06] p-1 rounded-xl mx-auto sm:mx-0 select-none">
                 <motion.button
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer disabled:cursor-default"
+                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer disabled:cursor-default select-none outline-none focus:outline-none"
                   title="Página anterior"
                 >
                   <CaretLeft size={16} weight="bold" />
@@ -788,7 +806,7 @@ export const MovementsView: React.FC = () => {
                     return (
                       <span
                         key={`ellipsis-${idx}`}
-                        className="w-6 h-7 flex items-center justify-center text-xs font-black text-slate-400 select-none tracking-widest"
+                        className="w-6 h-7 flex items-center justify-center text-xs font-black text-slate-400 select-none tracking-widest pointer-events-none"
                       >
                         ...
                       </span>
@@ -802,7 +820,7 @@ export const MovementsView: React.FC = () => {
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => handlePageChange(pg)}
-                      className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
+                      className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer select-none outline-none focus:outline-none ${
                         currentPage === pg
                           ? 'btn-unified bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -818,7 +836,7 @@ export const MovementsView: React.FC = () => {
                   whileTap={{ scale: 0.9 }}
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer disabled:cursor-default"
+                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer disabled:cursor-default select-none outline-none focus:outline-none"
                   title="Página siguiente"
                 >
                   <CaretRight size={16} weight="bold" />

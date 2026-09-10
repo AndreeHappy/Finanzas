@@ -69,6 +69,11 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+button, [role="button"] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 /* UNIFIED BUTTON CONTRAST ENFORCEMENT */
 html.dark .btn-unified {
   background-color: #ffffff !important;
