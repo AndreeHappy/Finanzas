@@ -294,8 +294,9 @@ export const MovementsView: React.FC = () => {
   return (
     <div className="w-full max-w-5xl 2xl:max-w-6xl mx-auto space-y-6 pb-28">
       {/* 1. Barra de Filtros Superior con Micro-animaciones */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-slate-200/70 dark:bg-white/[0.06] border border-slate-300 dark:border-white/[0.08]">
+      <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-3 w-full">
+        {/* Filtros de Fondo / Tarjeta */}
+        <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 p-1.5 rounded-2xl bg-slate-200/70 dark:bg-white/[0.06] border border-slate-300 dark:border-white/[0.08] w-full sm:w-auto">
           <motion.button
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.96 }}
@@ -303,14 +304,14 @@ export const MovementsView: React.FC = () => {
               setFilterWalletId('free_spending');
               setCurrentPage(1);
             }}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`flex-1 sm:flex-none px-4 py-2.5 sm:px-3.5 sm:py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               filterWalletId === 'free_spending'
                 ? 'btn-unified bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            <CreditCard size={15} weight="bold" />
-            Libre para Gastar
+            <CreditCard size={16} weight="bold" />
+            <span>Libre para Gastar</span>
           </motion.button>
 
           <motion.button
@@ -320,14 +321,14 @@ export const MovementsView: React.FC = () => {
               setFilterWalletId('savings');
               setCurrentPage(1);
             }}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`flex-1 sm:flex-none px-4 py-2.5 sm:px-3.5 sm:py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               filterWalletId === 'savings'
                 ? 'btn-unified bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            <PiggyBank size={15} weight="bold" />
-            Ahorro
+            <PiggyBank size={16} weight="bold" />
+            <span>Ahorro</span>
           </motion.button>
 
           <motion.button
@@ -337,26 +338,26 @@ export const MovementsView: React.FC = () => {
               setFilterWalletId('all');
               setCurrentPage(1);
             }}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`flex-1 sm:flex-none px-4 py-2.5 sm:px-3.5 sm:py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
               filterWalletId === 'all'
                 ? 'btn-unified bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            Ver Todo
+            <span>Ver Todo</span>
           </motion.button>
         </div>
 
         {/* Botones rápidos destacados con feedback háptico / visual */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-center gap-2.5 w-full sm:w-auto">
           <motion.button
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.96 }}
             onClick={handleExportCSV}
             title="Descargar movimientos en archivo CSV"
-            className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-white/[0.1] bg-white/80 dark:bg-white/[0.05] hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-300 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+            className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-xl border border-slate-300 dark:border-white/[0.1] bg-white/80 dark:bg-white/[0.05] hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
           >
-            <FileCsv size={16} weight="bold" />
+            <FileCsv size={17} weight="bold" />
             <span>Exportar CSV</span>
           </motion.button>
 
@@ -364,9 +365,9 @@ export const MovementsView: React.FC = () => {
             whileHover={{ scale: 1.06, y: -1 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsMovementModalOpen(true)}
-            className="btn-unified px-4 py-2 rounded-xl bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-black shadow-md shadow-black/10 dark:shadow-black/30 transition-all flex items-center gap-1.5 cursor-pointer ring-1 ring-white/20"
+            className="btn-unified flex-1 sm:flex-none px-5 py-2.5 sm:py-2 rounded-xl bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-black shadow-md shadow-black/10 dark:shadow-black/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer ring-1 ring-white/20"
           >
-            <Plus size={16} weight="bold" />
+            <Plus size={17} weight="bold" />
             <span>Registrar</span>
           </motion.button>
         </div>
@@ -484,11 +485,14 @@ export const MovementsView: React.FC = () => {
               // En la cuenta de ahorro, un retiro es una salida/deducción (-S/.)
               const isSavingsWithdrawalFromSavings = isSavingsWithdrawal && isSavingsWalletTx;
 
-              // En la cuenta digital/efectivo receptora, es un ingreso (+S/.)
+              // En la cuenta de ahorro, un aporte es un ingreso (+S/.)
+              const isSavingsDepositToSavings = isSavingsDeposit && isSavingsWalletTx;
+
+              // En la cuenta digital/efectivo receptora, el retiro de ahorro es un ingreso (+S/.)
               const isIncome =
-                (tx.type === 'income' || (isSavingsWithdrawal && !isSavingsWalletTx)) &&
-                !isSavingsDeposit &&
-                !isSavingsWithdrawalFromSavings;
+                (tx.type === 'income' || (isSavingsWithdrawal && !isSavingsWalletTx) || isSavingsDepositToSavings) &&
+                !isSavingsWithdrawalFromSavings &&
+                !(isSavingsDeposit && !isSavingsWalletTx);
 
               const resolvedCat = resolveCategory(tx);
               const regNumber = txIndexMap.get(tx.id) ?? 1;
@@ -597,30 +601,13 @@ export const MovementsView: React.FC = () => {
                     <div className="flex items-center gap-3 shrink-0 pl-3">
                       <span
                         className={`text-base sm:text-lg font-black font-mono tracking-tight ${
-                          isSavingsDeposit
-                            ? 'text-amber-600 dark:text-amber-400'
-                            : isSavingsWithdrawalFromSavings
-                            ? 'text-rose-600 dark:text-rose-400'
-                            : isIncome
+                          isIncome
                             ? 'text-emerald-600 dark:text-emerald-400'
                             : 'text-rose-600 dark:text-rose-400'
                         }`}
                       >
-                        {isSavingsDeposit ? (
-                          <>
-                            <span className="text-xs font-semibold mr-1 uppercase text-amber-500/90 tracking-wider">Ahorro</span>
-                            S/. {Number(tx.amount).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
-                          </>
-                        ) : isSavingsWithdrawalFromSavings ? (
-                          <>
-                            -S/. {Number(tx.amount).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
-                          </>
-                        ) : (
-                          <>
-                            {isIncome ? '+' : '-'}S/.{' '}
-                            {Number(tx.amount).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
-                          </>
-                        )}
+                        {isIncome ? '+' : '-'}S/.{' '}
+                        {Number(tx.amount).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
                       </span>
 
                       {/* Botón rápido de editar en la fila */}
@@ -768,46 +755,77 @@ export const MovementsView: React.FC = () => {
             </div>
           </div>
 
-          {/* Botones de Paginación (< 1 2 3 4 5 >) con micro-animaciones */}
-          {pageSize !== 'all' && totalPages > 1 && (
-            <div className="flex items-center gap-1 bg-slate-200/80 dark:bg-white/[0.06] p-1 rounded-xl">
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer disabled:cursor-default"
-              >
-                <CaretLeft size={16} weight="bold" />
-              </motion.button>
+          {/* Botones de Paginación Inteligente con puntos suspensivos (1 - 2 - 3 - ... - 11) */}
+          {pageSize !== 'all' && totalPages > 1 && (() => {
+            const getPaginationPages = (current: number, total: number): (number | string)[] => {
+              if (total <= 6) {
+                return Array.from({ length: total }, (_, i) => i + 1);
+              }
+              if (current <= 3) {
+                return [1, 2, 3, '...', total];
+              }
+              if (current >= total - 2) {
+                return [1, '...', total - 2, total - 1, total];
+              }
+              return [1, '...', current - 1, current, current + 1, '...', total];
+            };
 
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+            return (
+              <div className="flex items-center justify-center gap-1 bg-slate-200/80 dark:bg-white/[0.06] p-1 rounded-xl mx-auto sm:mx-0">
                 <motion.button
-                  key={pg}
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
-                  onClick={() => handlePageChange(pg)}
-                  className={`w-7 h-7 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
-                    currentPage === pg
-                      ? 'btn-unified bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer disabled:cursor-default"
+                  title="Página anterior"
                 >
-                  {pg}
+                  <CaretLeft size={16} weight="bold" />
                 </motion.button>
-              ))}
 
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer disabled:cursor-default"
-              >
-                <CaretRight size={16} weight="bold" />
-              </motion.button>
-            </div>
-          )}
+                {getPaginationPages(currentPage, totalPages).map((item, idx) => {
+                  if (item === '...') {
+                    return (
+                      <span
+                        key={`ellipsis-${idx}`}
+                        className="w-6 h-7 flex items-center justify-center text-xs font-black text-slate-400 select-none tracking-widest"
+                      >
+                        ...
+                      </span>
+                    );
+                  }
+
+                  const pg = item as number;
+                  return (
+                    <motion.button
+                      key={pg}
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => handlePageChange(pg)}
+                      className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
+                        currentPage === pg
+                          ? 'btn-unified bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      {pg}
+                    </motion.button>
+                  );
+                })}
+
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer disabled:cursor-default"
+                  title="Página siguiente"
+                >
+                  <CaretRight size={16} weight="bold" />
+                </motion.button>
+              </div>
+            );
+          })()}
         </div>
       </motion.div>
 

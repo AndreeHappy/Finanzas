@@ -67,41 +67,41 @@ export const PeriodicSummaries: React.FC<Props> = ({
 
   return (
     <div className="w-full space-y-2.5 sm:space-y-3">
-      {/* Switcher de Ámbito (Tarjeta vs Global) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pb-0.5">
+      {/* Switcher de Ámbito (Tarjeta vs Global) Centrado en Móvil */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-1.5 pb-1 sm:pb-0.5 text-center sm:text-left">
         <div>
-          <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
             Flujo Financiero Periódico
           </span>
-          <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+          <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white mt-0.5">
             {viewScope === 'wallet'
               ? (activeWallet?.name || 'Tarjeta Seleccionada')
               : 'Consolidado Global (Todas las Tarjetas)'}
           </p>
         </div>
 
-        <div className="flex items-center self-start sm:self-auto p-1 rounded-2xl bg-slate-200/70 dark:bg-white/[0.06] border border-slate-300 dark:border-white/[0.08]">
+        <div className="flex items-center justify-center self-center sm:self-auto p-1.5 sm:p-1 rounded-2xl bg-slate-200/70 dark:bg-white/[0.06] border border-slate-300 dark:border-white/[0.08]">
           <button
             onClick={() => setViewScope('wallet')}
-            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3.5 py-1.5 sm:px-3 sm:py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               viewScope === 'wallet'
                 ? 'btn-unified bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            <CreditCard size={13} weight="bold" />
-            Tarjeta
+            <CreditCard size={14} weight="bold" />
+            <span>Tarjeta</span>
           </button>
           <button
             onClick={() => setViewScope('global')}
-            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3.5 py-1.5 sm:px-3 sm:py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               viewScope === 'global'
                 ? 'btn-unified bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            <Globe size={13} weight="bold" />
-            Global
+            <Globe size={14} weight="bold" />
+            <span>Global</span>
           </button>
         </div>
       </div>

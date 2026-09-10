@@ -282,8 +282,8 @@ export const AuthView: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* LADO IZQUIERDO: TÍTULO Y PRESENTACIÓN */}
-      <div className="relative z-10 w-full lg:w-[48%] xl:w-[52%] p-8 sm:p-12 lg:p-16 flex flex-col justify-end min-h-[180px] sm:min-h-[240px] lg:min-h-screen">
+      {/* LADO IZQUIERDO: TÍTULO Y PRESENTACIÓN (SOLO DESKTOP) */}
+      <div className="relative z-10 hidden lg:flex w-full lg:w-[48%] xl:w-[52%] p-8 sm:p-12 lg:p-16 flex-col justify-end lg:min-h-screen">
         <div className="max-w-md my-auto lg:my-0 lg:mb-14">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-none drop-shadow-[0_4px_20px_rgba(0,0,0,0.75)]">
             Modulo finanzas
@@ -294,13 +294,23 @@ export const AuthView: React.FC = () => {
         </div>
       </div>
 
-      {/* LADO DERECHO: FORMULARIO FLOTANTE TRANSPARENTE GLASS */}
-      <div className="relative z-10 w-full lg:w-[52%] xl:w-[48%] flex items-center justify-center p-6 sm:p-10 lg:p-12 min-h-screen">
+      {/* LADO DERECHO / VISTA MÓVIL CENTRADA: FORMULARIO FLOTANTE TRANSPARENTE GLASS */}
+      <div className="relative z-10 w-full lg:w-[52%] xl:w-[48%] flex flex-col items-center justify-center p-4 sm:p-8 lg:p-12 min-h-[100dvh]">
+        {/* Cabecera Móvil Compacta Centrada */}
+        <div className="text-center mb-3 sm:mb-4 lg:hidden w-full max-w-md">
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-[0_3px_15px_rgba(0,0,0,0.85)]">
+            Modulo finanzas
+          </h1>
+          <p className="text-xs text-slate-100 mt-1 font-medium drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+            Control y gestión inteligente de tus finanzas personales.
+          </p>
+        </div>
+
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, ease: 'easeOut' }}
-          className="w-full max-w-md bg-white/30 hover:bg-white/35 backdrop-blur-xl p-6 sm:p-8 rounded-3xl border border-white/50 shadow-[0_25px_60px_rgba(0,0,0,0.3)] flex flex-col gap-5 my-auto transition-all"
+          className="w-full max-w-md bg-white/30 hover:bg-white/35 backdrop-blur-xl p-5 sm:p-8 rounded-3xl border border-white/50 shadow-[0_25px_60px_rgba(0,0,0,0.3)] flex flex-col gap-4 sm:gap-5 my-auto transition-all"
         >
           {/* Cabecera del Formulario: Icono al lado del título con letra más compacta */}
           <div className="flex flex-col gap-2">
