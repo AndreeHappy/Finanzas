@@ -179,8 +179,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 12 * 1024 * 1024) {
-      alert('La foto debe pesar menos de 12 MB.');
+    // Validación estricta de tipo MIME
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+      alert('Formato de imagen no permitido. Solo se aceptan archivos PNG, JPEG y WebP.');
+      e.target.value = '';
+      return;
+    }
+
+    // Límite estricto de tamaño a 5 MB
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      alert('La foto debe pesar menos de 5 MB por motivos de seguridad y rendimiento.');
+      e.target.value = '';
       return;
     }
 
@@ -195,7 +206,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Recorte centrado a proporción 1:1
+        // Recorte centrado a proporción 1:1 y neutralización de metadatos/EXIF maliciosos
         const minSide = Math.min(img.width, img.height);
         const startX = (img.width - minSide) / 2;
         const startY = (img.height - minSide) / 2;
@@ -207,7 +218,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
       img.src = event.target?.result as string;
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
   };
+
 
   useEffect(() => {
     if (profile) {

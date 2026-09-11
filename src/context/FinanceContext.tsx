@@ -3,6 +3,8 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { DEFAULT_CATEGORIES } from '../constants/categories';
 import { parseLocalDateParts } from '../utils/date';
+import { sanitizeAmount, sanitizeTextInput } from '../utils/security';
+
 import type {
   WalletCard,
   Category,
@@ -345,7 +347,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           .from('transactions')
           .select('*')
           .eq('user_id', targetUserId)
-          .order('date', { ascending: false });
+          .order('date', { ascending: false })
+          .limit(1000);
 
         if (!tError && remoteTx) {
           setTransactions(remoteTx);
@@ -587,13 +590,18 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       throw new Error('No tienes tarjetas disponibles para registrar este movimiento. El sistema creará tus 3 tarjetas base automáticamente al recargar o iniciar sesión.');
     }
 
-    const sanitizedAmount = Math.abs(Number(txData.amount) || 0);
-    if (sanitizedAmount <= 0) {
-      throw new Error('El monto debe ser superior a cero.');
+    const amountCheck = sanitizeAmount(txData.amount);
+    if (!amountCheck.isValid) {
+      throw new Error(amountCheck.error || 'El monto ingresado es inválido.');
+    }
+    const sanitizedAmount = amountCheck.amount;
+    const sanitizedConcept = sanitizeTextInput(txData.concept, 120);
+    if (!sanitizedConcept) {
+      throw new Error('El concepto del movimiento no puede estar vacío.');
     }
 
     // 1. Normalizar nombres heredados (Comida -> Alimentación, Pasajes -> Transporte, etc.)
-    let finalCategoryName = (txData.category_name || 'General').trim();
+    let finalCategoryName = sanitizeTextInput(txData.category_name || 'General', 60);
     const catNameLower = finalCategoryName.toLowerCase();
     if (catNameLower === 'comida') finalCategoryName = 'Alimentación';
     if (catNameLower === 'pasajes') finalCategoryName = 'Transporte';
@@ -688,16 +696,20 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (user && isSupabaseConfigured && supabase) {
       try {
         const payload: Record<string, any> = {};
-        if (updates.concept !== undefined) payload.concept = updates.concept.trim();
-        if (updates.amount !== undefined) payload.amount = Math.abs(Number(updates.amount) || 0);
+        if (updates.concept !== undefined) payload.concept = sanitizeTextInput(updates.concept, 120);
+        if (updates.amount !== undefined) {
+          const amtCheck = sanitizeAmount(updates.amount);
+          if (amtCheck.isValid) payload.amount = amtCheck.amount;
+        }
         if (updates.type !== undefined) payload.type = updates.type;
         if (updates.wallet_id !== undefined) payload.wallet_id = updates.wallet_id;
         if (updates.category_id !== undefined) {
           payload.category_id = isValidUUID(updates.category_id) ? updates.category_id : null;
         }
-        if (updates.category_name !== undefined) payload.category_name = updates.category_name.trim() || 'General';
+        if (updates.category_name !== undefined) payload.category_name = sanitizeTextInput(updates.category_name, 60) || 'General';
         if (updates.date !== undefined) payload.date = updates.date;
-        if (updates.notes !== undefined) payload.notes = updates.notes?.trim() || null;
+        if (updates.notes !== undefined) payload.notes = sanitizeTextInput(updates.notes, 250) || null;
+
 
         const { error } = await supabase.from('transactions').update(payload).eq('id', id);
         if (error) {

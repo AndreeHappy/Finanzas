@@ -22,7 +22,9 @@ import { useFinance } from '../../context/FinanceContext';
 import { parseLocalDateParts } from '../../utils/date';
 import { ContextualMovementModal } from './ContextualMovementModal';
 import { EditMovementModal } from './EditMovementModal';
+import { sanitizeCsvCell } from '../../utils/security';
 import type { Transaction } from '../../types';
+
 
 export const MovementsView: React.FC = () => {
   const {
@@ -160,15 +162,16 @@ export const MovementsView: React.FC = () => {
     const rows = filteredTransactions.map((tx) => {
       const walletName = wallets.find((w) => w.id === tx.wallet_id)?.name || 'Desconocido';
       return [
-        tx.id,
-        `"${walletName}"`,
-        tx.type,
+        sanitizeCsvCell(tx.id),
+        sanitizeCsvCell(walletName),
+        sanitizeCsvCell(tx.type),
         tx.amount,
-        `"${tx.category_name || 'General'}"`,
-        `"${tx.concept.replace(/"/g, '""')}"`,
-        tx.date,
+        sanitizeCsvCell(tx.category_name || 'General'),
+        sanitizeCsvCell(tx.concept),
+        sanitizeCsvCell(tx.date),
       ];
     });
+
 
     const csvContent =
       'data:text/csv;charset=utf-8,' +

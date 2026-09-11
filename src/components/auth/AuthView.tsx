@@ -17,8 +17,15 @@ import {
   PaperPlaneRight,
 } from '@phosphor-icons/react';
 import { useAuth } from '../../context/AuthContext';
+import { isValidEmail, validatePassword, sanitizeTextInput } from '../../utils/security';
 
 type AuthMode = 'login' | 'register' | 'forgot_password';
+
+const FAILED_ATTEMPTS_KEY = 'app_finanzas_login_fails';
+const LOCKOUT_KEY = 'app_finanzas_login_lockout_until';
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 60 * 1000; // 60 segundos
+
 
 function translateSupabaseError(error: string): { title: string; hint?: string; isUnconfirmedEmail?: boolean } {
   const lower = error.toLowerCase();
@@ -94,6 +101,35 @@ export const AuthView: React.FC = () => {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isResendingEmail, setIsResendingEmail] = useState(false);
+  const [honeypot, setHoneypot] = useState('');
+  const [lockoutSecondsLeft, setLockoutSecondsLeft] = useState<number | null>(() => {
+    try {
+      const lockedUntil = parseInt(sessionStorage.getItem(LOCKOUT_KEY) || '0', 10);
+      if (lockedUntil > Date.now()) {
+        return Math.max(1, Math.ceil((lockedUntil - Date.now()) / 1000));
+      }
+    } catch {
+      // Ignorar errores de acceso a almacenamiento
+    }
+    return null;
+  });
+
+  // Temporizador de desbloqueo progresivo
+  useEffect(() => {
+    if (lockoutSecondsLeft === null || lockoutSecondsLeft <= 0) return;
+    const timer = setInterval(() => {
+      setLockoutSecondsLeft((prev) => {
+        if (prev === null || prev <= 1) {
+          sessionStorage.removeItem(LOCKOUT_KEY);
+          sessionStorage.removeItem(FAILED_ATTEMPTS_KEY);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lockoutSecondsLeft]);
+
 
   // Asegurar tema blanco en la pantalla de autenticación
   useEffect(() => {
@@ -144,8 +180,37 @@ export const AuthView: React.FC = () => {
     setErrorDetails(null);
     setSuccessMsg(null);
 
-    const cleanEmail = email.trim();
+    // 1. Verificación de Bloqueo por Fuerza Bruta (Rate Limiting)
+    if (lockoutSecondsLeft !== null && lockoutSecondsLeft > 0) {
+      setErrorDetails({
+        title: 'Acceso bloqueado temporalmente por seguridad.',
+        hint: `Demasiados intentos consecutivos erróneos. Por favor espera ${lockoutSecondsLeft} segundos para volver a intentar.`,
+      });
+      return;
+    }
+
+    // 2. Protección Contra Bots Automatizados (Honeypot Trap)
+    if (honeypot.trim().length > 0) {
+      // Un usuario legítimo nunca ve ni completa este campo oculto
+      setIsLoading(true);
+      setTimeout(() => {
+        setIsLoading(false);
+        setErrorDetails({ title: 'Error en la verificación de seguridad del formulario.' });
+      }, 700);
+      return;
+    }
+
+    const cleanEmail = sanitizeTextInput(email).toLowerCase();
     const cleanPassword = password.trim();
+
+    // 3. Validación de Formato de Correo Electrónico
+    if (cleanEmail && !isValidEmail(cleanEmail)) {
+      setErrorDetails({
+        title: 'Formato de correo electrónico inválido.',
+        hint: 'Por favor introduce un correo válido (ejemplo: usuario@correo.com).',
+      });
+      return;
+    }
 
     if (cleanEmail) {
       try {
@@ -159,8 +224,9 @@ export const AuthView: React.FC = () => {
 
     try {
       if (isPasswordRecovery) {
-        if (newPassword.length < 6) {
-          setErrorDetails({ title: 'La nueva contraseña debe tener al menos 6 caracteres.' });
+        const passVal = validatePassword(newPassword);
+        if (!passVal.isValid) {
+          setErrorDetails({ title: passVal.error || 'La contraseña no cumple los requisitos.' });
           setIsLoading(false);
           return;
         }
@@ -199,7 +265,26 @@ export const AuthView: React.FC = () => {
         }
         const res = await login(cleanEmail, cleanPassword);
         if (res.error) {
-          setErrorDetails(translateSupabaseError(res.error));
+          // Contabilizar intento fallido para protección contra fuerza bruta
+          const currentFails = parseInt(sessionStorage.getItem(FAILED_ATTEMPTS_KEY) || '0', 10) + 1;
+          sessionStorage.setItem(FAILED_ATTEMPTS_KEY, `${currentFails}`);
+
+          if (currentFails >= MAX_FAILED_ATTEMPTS) {
+            const lockoutUntil = Date.now() + LOCKOUT_DURATION_MS;
+            sessionStorage.setItem(LOCKOUT_KEY, `${lockoutUntil}`);
+            setLockoutSecondsLeft(60);
+            setErrorDetails({
+              title: 'Demasiados intentos fallidos.',
+              hint: 'Por seguridad ante ataques de fuerza bruta, el formulario se ha bloqueado temporalmente durante 60 segundos.',
+            });
+          } else {
+            setErrorDetails(translateSupabaseError(res.error));
+          }
+        } else {
+          // Éxito: Limpiar contadores de intentos fallidos
+          sessionStorage.removeItem(FAILED_ATTEMPTS_KEY);
+          sessionStorage.removeItem(LOCKOUT_KEY);
+          setLockoutSecondsLeft(null);
         }
         setIsLoading(false);
         return;
@@ -211,13 +296,15 @@ export const AuthView: React.FC = () => {
           setIsLoading(false);
           return;
         }
-        if (cleanPassword.length < 6) {
-          setErrorDetails({ title: 'La contraseña debe tener al menos 6 caracteres.' });
+        const passVal = validatePassword(cleanPassword);
+        if (!passVal.isValid) {
+          setErrorDetails({ title: passVal.error || 'La contraseña no cumple los requisitos mínimos.' });
           setIsLoading(false);
           return;
         }
 
-        const res = await register(cleanEmail, cleanPassword, fullName.trim());
+        const sanitizedFullName = sanitizeTextInput(fullName, 100);
+        const res = await register(cleanEmail, cleanPassword, sanitizedFullName);
         if (res.error) {
           setErrorDetails(translateSupabaseError(res.error));
         } else if (res.requiresEmailConfirmation) {
@@ -598,13 +685,33 @@ export const AuthView: React.FC = () => {
               </>
             )}
 
+            {/* Campo Trampa Anti-Bots (Honeypot): Invisible e inaccesible para humanos */}
+            <input
+              type="text"
+              name="company_website_url_hp"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+              style={{
+                display: 'none',
+                opacity: 0,
+                position: 'absolute',
+                left: '-9999px',
+                pointerEvents: 'none',
+              }}
+            />
+
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || (lockoutSecondsLeft !== null && lockoutSecondsLeft > 0)}
               className="mt-2 w-full py-3.5 rounded-xl bg-zinc-950 hover:bg-black active:scale-[0.99] text-white font-black text-xs tracking-wider uppercase transition-all shadow-xl shadow-black/30 border border-zinc-800 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {isLoading ? (
                 <span>Procesando...</span>
+              ) : lockoutSecondsLeft !== null && lockoutSecondsLeft > 0 ? (
+                <span className="text-amber-400">Bloqueado por seguridad ({lockoutSecondsLeft}s)</span>
               ) : isPasswordRecovery ? (
                 <>
                   <span>Guardar Nueva Contraseña</span>

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import type { UserProfile } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { sanitizeTextInput } from '../utils/security';
 
 interface AuthContextType {
   user: { id: string; email: string } | null;
@@ -567,19 +568,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const updated: UserProfile = {
       ...profile,
-      full_name: data.fullName !== undefined ? data.fullName : profile.full_name,
-      first_name: data.firstName !== undefined ? data.firstName : profile.first_name,
-      last_name: data.lastName !== undefined ? data.lastName : profile.last_name,
-      nickname: data.nickname !== undefined ? data.nickname : profile.nickname,
-      phone_number: data.phoneNumber !== undefined ? data.phoneNumber : profile.phone_number,
-      age: data.age !== undefined ? data.age : profile.age,
-      country: data.country !== undefined ? data.country : profile.country,
-      city: data.city !== undefined ? data.city : profile.city,
-      occupation: data.occupation !== undefined ? data.occupation : profile.occupation,
+      full_name: data.fullName !== undefined ? sanitizeTextInput(data.fullName, 100) : profile.full_name,
+      first_name: data.firstName !== undefined ? sanitizeTextInput(data.firstName, 60) : profile.first_name,
+      last_name: data.lastName !== undefined ? sanitizeTextInput(data.lastName, 60) : profile.last_name,
+      nickname: data.nickname !== undefined ? sanitizeTextInput(data.nickname, 60) : profile.nickname,
+      phone_number: data.phoneNumber !== undefined ? sanitizeTextInput(data.phoneNumber, 25) : profile.phone_number,
+      age: data.age !== undefined ? (isNaN(Number(data.age)) ? undefined : Math.min(120, Math.max(0, Number(data.age)))) : profile.age,
+      country: data.country !== undefined ? sanitizeTextInput(data.country, 60) : profile.country,
+      city: data.city !== undefined ? sanitizeTextInput(data.city, 60) : profile.city,
+      occupation: data.occupation !== undefined ? sanitizeTextInput(data.occupation, 100) : profile.occupation,
       avatar_url: data.avatarUrl !== undefined ? data.avatarUrl : profile.avatar_url,
     };
 
     setProfile(updated);
+
 
     if (isSupabaseConfigured && supabase && user) {
       try {
