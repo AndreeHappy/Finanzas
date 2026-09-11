@@ -15,9 +15,11 @@ const AdminView = lazy(() =>
   import('./components/admin/AdminView').then((module) => ({ default: module.AdminView }))
 );
 import type { ActiveModule } from './types';
-import { CircleNotch, WarningCircle } from '@phosphor-icons/react';
+import { CircleNotch, WarningCircle, DeviceMobile } from '@phosphor-icons/react';
+import { DownloadAppModal } from './components/common/DownloadAppModal';
 
 const MODULE_SESSION_KEY = 'app_finanzas_active_tab_v2';
+
 
 const MainPortal: React.FC = () => {
   const { user, profile, loading, logout, isAdmin, inactivitySecondsLeft, extendSession } = useAuth();
@@ -29,6 +31,7 @@ const MainPortal: React.FC = () => {
     (profile?.full_name ? profile.full_name.trim().split(' ')[0] : 'Usuario');
 
   const [activeModule, setActiveModuleState] = useState<ActiveModule>('inicio');
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
 
   // Siempre abrir en 'inicio' al iniciar sesión
   React.useEffect(() => {
@@ -76,7 +79,20 @@ const MainPortal: React.FC = () => {
             Hola, {greetingName}
           </h1>
         </div>
+
+        {/* Botón Descargar App en la esquina derecha */}
+        <motion.button
+          whileHover={{ scale: 1.05, y: -1 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setIsDownloadModalOpen(true)}
+          className="btn-unified px-3.5 py-2 sm:px-4 sm:py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-black shadow-md shadow-black/10 dark:shadow-black/30 transition-all flex items-center gap-2 cursor-pointer ring-1 ring-white/20"
+          title="Descargar o instalar app en tu celular"
+        >
+          <DeviceMobile size={17} weight="bold" />
+          <span>Descargar App</span>
+        </motion.button>
       </header>
+
 
       {/* Interactive Dot Matrix Canvas Background */}
       <InteractiveBackground />
@@ -186,6 +202,12 @@ const MainPortal: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Modal para Descarga e Instalación de App Móvil */}
+      <DownloadAppModal
+        isOpen={isDownloadModalOpen}
+        onClose={() => setIsDownloadModalOpen(false)}
+      />
     </div>
   );
 };

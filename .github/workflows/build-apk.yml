@@ -1,0 +1,84 @@
+name: Compilar APK Android (Capacitor)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Compilar APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clonar Repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Configurar Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: 17
+
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar Dependencias de Node
+        run: |
+          npm install
+          npm install --save-dev @capacitor/cli @capacitor/android
+          npm install @capacitor/core
+
+      - name: Compilar Frontend (Vite)
+        run: npm run build
+
+      - name: Inicializar y Sincronizar Android con Capacitor
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+
+      - name: Dar permisos de ejecución a Gradle Wrapper
+        run: chmod +x android/gradlew
+
+      - name: Compilar APK con Gradle
+        run: |
+          cd android
+          ./gradlew assembleDebug
+
+      - name: Localizar y Renombrar APK
+        run: |
+          mkdir -p output_apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk output_apk/finanzas-app.apk
+
+      - name: Subir APK como Artefacto de GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: finanzas-app-apk
+          path: output_apk/finanzas-app.apk
+          retention-days: 30
+
+      - name: Publicar Release con Descarga Directa
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: android-app-latest
+          name: "Finanzas App para Android (APK)"
+          body: |
+            ### Aplicación Móvil Android para Finanzas Personales
+            - Descarga el archivo `finanzas-app.apk` e instálalo directamente en tu teléfono Android.
+            - Compilado automáticamente desde la rama principal `main`.
+          files: output_apk/finanzas-app.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

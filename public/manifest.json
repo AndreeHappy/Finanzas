@@ -1,0 +1,19 @@
+{
+  "short_name": "Finanzas",
+  "name": "Finanzas - Gestor de Flujo de Caja",
+  "description": "Aplicación personal de finanzas, tarjetas de crédito, gastos y ahorros.",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0c0d12",
+  "theme_color": "#0c0d12",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "scope": "/"
+}
