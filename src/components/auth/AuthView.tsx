@@ -374,7 +374,7 @@ export const AuthView: React.FC = () => {
       <div className="relative z-10 hidden lg:flex w-full lg:w-[48%] xl:w-[52%] p-8 sm:p-12 lg:p-16 flex-col justify-end lg:min-h-screen">
         <div className="max-w-md my-auto lg:my-0 lg:mb-14">
           <div className="mb-4">
-            <AppLogo size={60} className="drop-shadow-[0_10px_25px_rgba(0,0,0,0.6)]" />
+            <AppLogo size={58} withBackground className="drop-shadow-[0_12px_28px_rgba(0,0,0,0.6)]" />
           </div>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-none drop-shadow-[0_4px_20px_rgba(0,0,0,0.75)]">
             Modulo finanzas
@@ -389,7 +389,7 @@ export const AuthView: React.FC = () => {
       <div className="relative z-10 w-full lg:w-[52%] xl:w-[48%] flex flex-col items-center justify-center p-4 sm:p-8 lg:p-12 min-h-[100dvh]">
         {/* Cabecera Móvil Compacta Centrada */}
         <div className="text-center mb-3 sm:mb-4 lg:hidden w-full max-w-md flex flex-col items-center">
-          <AppLogo size={46} className="mb-2.5 drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]" />
+          <AppLogo size={48} withBackground className="mb-2.5 drop-shadow-[0_6px_16px_rgba(0,0,0,0.6)]" />
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-[0_3px_15px_rgba(0,0,0,0.85)]">
             Modulo finanzas
           </h1>
