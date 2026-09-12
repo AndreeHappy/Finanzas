@@ -216,12 +216,30 @@ export const StatisticsView: React.FC = () => {
         ...it,
         rank: idx + 1,
         percentage: total > 0 ? Math.round((it.amount / total) * 100) : 0,
-        relativeBarWidth: Math.max(8, Math.round((it.amount / maxAmount) * 100)),
+        relativeBarWidth: Math.max(4, Math.round((it.amount / maxAmount) * 100)),
       })),
       total,
       maxAmount,
     };
   }, [selectedPeriodTx, categories]);
+
+  // Escala numérica para el Gráfico de Barras Horizontales (Estilo Imagen 1 de Referencia)
+  const barScale = useMemo(() => {
+    const maxVal = categoryExpenses.maxAmount || 100;
+    if (maxVal <= 50) return { max: 50, ticks: [0, 10, 20, 30, 40, 50] };
+    if (maxVal <= 100) return { max: 100, ticks: [0, 25, 50, 75, 100] };
+    if (maxVal <= 250) return { max: 250, ticks: [0, 50, 100, 150, 200, 250] };
+    if (maxVal <= 500) return { max: 500, ticks: [0, 100, 200, 300, 400, 500] };
+    if (maxVal <= 1000) return { max: 1000, ticks: [0, 200, 400, 600, 800, 1000] };
+    if (maxVal <= 2000) return { max: 2000, ticks: [0, 500, 1000, 1500, 2000] };
+    if (maxVal <= 5000) return { max: 5000, ticks: [0, 1000, 2000, 3000, 4000, 5000] };
+    const step = Math.ceil(maxVal / 500) * 100;
+    const max = step * 5;
+    return {
+      max,
+      ticks: [0, step, step * 2, step * 3, step * 4, step * 5],
+    };
+  }, [categoryExpenses.maxAmount]);
 
   // 2. DATOS DEL GRÁFICO DE PASTEL (INGRESOS VS GASTOS) DEL MES SELECCIONADO
   const monthlyPieData = useMemo(() => {
@@ -374,7 +392,7 @@ export const StatisticsView: React.FC = () => {
       {/* Grid de Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 items-stretch">
         
-        {/* PANEL IZQUIERDO: BARRAS DE GASTOS POR CATEGORÍA (DE MAYOR A MENOR) */}
+        {/* PANEL IZQUIERDO: GRÁFICO DE BARRAS HORIZONTALES POR CATEGORÍA (ESTILO IMAGEN 1) */}
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -426,73 +444,112 @@ export const StatisticsView: React.FC = () => {
             </span>
           </div>
 
-          {/* Lista de Barras de Categorías Ordenadas de Mayor a Menor */}
-          <div className="flex-1 py-1 space-y-3 max-h-[290px] overflow-y-auto pr-1">
+          {/* Gráfico de Barras Horizontales con Ejes y Cuadrícula (Fiel a la Imagen 1) */}
+          <div className="flex-1 py-2 flex flex-col justify-between min-h-[270px]">
             {categoryExpenses.items.length === 0 ? (
               <div className="py-16 text-center text-slate-400 text-xs font-medium">
                 No hay gastos registrados en {selectedPeriod.label}.
               </div>
             ) : (
-              categoryExpenses.items.map((cat, idx) => {
-                const IconComp = getCategoryIcon(cat.icon_name);
-                return (
-                  <div key={idx} className="space-y-1.5 group/item">
-                    <div className="flex items-center justify-between text-xs">
-                      {/* Izquierda: Rank, Icono y Nombre */}
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span
-                          className={`w-5 h-5 rounded-md text-[10px] font-black flex items-center justify-center shrink-0 ${
-                            idx === 0
-                              ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 font-extrabold'
-                              : 'bg-slate-100 dark:bg-white/[0.06] text-slate-500 dark:text-slate-400'
-                          }`}
-                        >
-                          #{cat.rank}
-                        </span>
-
-                        <div
-                          className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
-                          style={{ backgroundColor: `${cat.color}25`, color: cat.color }}
-                        >
-                          <IconComp size={14} weight="bold" />
-                        </div>
-
-                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate">
-                          {cat.name}
-                        </span>
-
-                        <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
-                          ({cat.count} {cat.count === 1 ? 'mov' : 'movs'})
-                        </span>
-                      </div>
-
-                      {/* Derecha: Monto y Porcentaje */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="font-mono font-black text-slate-900 dark:text-white text-xs">
-                          S/. {cat.amount.toFixed(2)}
-                        </span>
-                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-400 min-w-[34px] text-right">
-                          {cat.percentage}%
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Barra de Progreso Visual con el Color Propio de la Categoría */}
-                    <div className="w-full h-2.5 rounded-full bg-slate-100 dark:bg-white/[0.06] overflow-hidden p-0.5">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${cat.relativeBarWidth}%` }}
-                        transition={{ duration: 0.6, delay: idx * 0.04, ease: 'easeOut' }}
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          backgroundColor: cat.color,
-                          boxShadow: `0 0 10px ${cat.color}40`,
-                        }}
-                      />
+              <div className="relative w-full flex-1 flex flex-col justify-between">
+                {/* Área de Barras con Cuadrícula Vertical de Fondo */}
+                <div className="relative w-full flex-1 max-h-[250px] overflow-y-auto pr-1">
+                  {/* Líneas de Cuadrícula Verticales de Fondo que cruzan todo el gráfico */}
+                  <div className="absolute inset-0 left-24 sm:left-32 right-3 pointer-events-none z-0">
+                    <div className="relative w-full h-full">
+                      {barScale.ticks.map((tick, i) => {
+                        const leftPct = (tick / barScale.max) * 100;
+                        return (
+                          <div
+                            key={i}
+                            className="absolute top-0 bottom-0 border-r border-slate-200/80 dark:border-white/[0.06]"
+                            style={{ left: `${leftPct}%` }}
+                          />
+                        );
+                      })}
                     </div>
                   </div>
-                );
-              })
+
+                  {/* Filas Horizontales: Categoría en Eje Y + Barra Horizontal hacia la Derecha */}
+                  <div className="relative z-10 space-y-2.5 py-1">
+                    {categoryExpenses.items.map((cat, idx) => {
+                      const IconComp = getCategoryIcon(cat.icon_name);
+                      const barWidth = Math.max(3, Math.min(100, (cat.amount / barScale.max) * 100));
+
+                      return (
+                        <div key={idx} className="flex items-center gap-2 group/bar">
+                          {/* Eje Y: Etiqueta de Categoría alineada a la derecha contra el inicio de la barra */}
+                          <div className="w-24 sm:w-32 flex items-center justify-end gap-1.5 shrink-0 text-right pr-2">
+                            <span
+                              className="text-[11px] sm:text-xs font-black text-slate-800 dark:text-slate-200 truncate"
+                              title={cat.name}
+                            >
+                              {cat.name}
+                            </span>
+                            <div
+                              className="w-5 h-5 rounded-md flex items-center justify-center shrink-0"
+                              style={{ backgroundColor: `${cat.color}25`, color: cat.color }}
+                            >
+                              <IconComp size={12} weight="bold" />
+                            </div>
+                          </div>
+
+                          {/* Barra Horizontal (Línea base común, sólida con borde redondeado derecho) */}
+                          <div className="flex-1 flex items-center relative pr-2 min-w-0">
+                            <div className="w-full flex items-center relative h-6 sm:h-7">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${barWidth}%` }}
+                                transition={{ duration: 0.6, delay: idx * 0.05, ease: 'easeOut' }}
+                                className="h-full rounded-r-lg transition-all flex items-center justify-end pr-2 shadow-xs cursor-pointer group-hover/bar:brightness-110 shrink-0"
+                                style={{
+                                  backgroundColor: cat.color,
+                                }}
+                                title={`${cat.name}: S/. ${cat.amount.toFixed(2)} (${cat.percentage}%)`}
+                              >
+                                {barWidth > 32 && (
+                                  <span className="text-[10px] sm:text-[11px] font-mono font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)] whitespace-nowrap">
+                                    S/. {cat.amount.toFixed(0)}
+                                  </span>
+                                )}
+                              </motion.div>
+
+                              {barWidth <= 32 && (
+                                <span className="ml-1.5 text-[10px] sm:text-[11px] font-mono font-black text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                                  S/. {cat.amount.toFixed(0)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Eje X Numérico al Fondo (Idéntico a la imagen de referencia con ticks 0, 100, 200, 300...) */}
+                <div className="mt-2 pt-1.5 border-t-2 border-slate-300/80 dark:border-white/20 flex items-center pl-24 sm:pl-32 pr-3">
+                  <div className="relative w-full h-4">
+                    {barScale.ticks.map((tick, i) => {
+                      const leftPct = (tick / barScale.max) * 100;
+                      return (
+                        <div
+                          key={i}
+                          className="absolute top-0 flex flex-col items-center"
+                          style={{
+                            left: `${leftPct}%`,
+                            transform: i === 0 ? 'none' : i === barScale.ticks.length - 1 ? 'translateX(-100%)' : 'translateX(-50%)',
+                          }}
+                        >
+                          <span className="text-[9px] sm:text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 select-none">
+                            {tick}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             )}
           </div>
 
@@ -976,73 +1033,104 @@ export const StatisticsView: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Listado Expandido de Barras */}
+                      {/* Gráfico de Barras Horizontal Ampliado con Ejes y Cuadrícula */}
                       {categoryExpenses.items.length === 0 ? (
                         <div className="py-12 text-center text-slate-400 text-sm font-medium">
                           No hay gastos registrados en {selectedPeriod.label}.
                         </div>
                       ) : (
-                        <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
-                          {categoryExpenses.items.map((cat, idx) => {
-                            const IconComp = getCategoryIcon(cat.icon_name);
-                            const avgTicket = cat.count > 0 ? cat.amount / cat.count : 0;
-                            return (
-                              <div
-                                key={idx}
-                                className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/70 dark:border-white/[0.06] space-y-2.5"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <span
-                                      className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center shrink-0 ${
-                                        idx === 0
-                                          ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
-                                          : 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300'
-                                      }`}
-                                    >
-                                      #{cat.rank}
-                                    </span>
-
+                        <div className="p-4 sm:p-5 rounded-3xl bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.06] space-y-4">
+                          <div className="relative w-full">
+                            {/* Cuadrícula de fondo */}
+                            <div className="absolute inset-0 left-28 sm:left-40 right-4 pointer-events-none z-0">
+                              <div className="relative w-full h-full">
+                                {barScale.ticks.map((tick, i) => {
+                                  const leftPct = (tick / barScale.max) * 100;
+                                  return (
                                     <div
-                                      className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-                                      style={{ backgroundColor: `${cat.color}25`, color: cat.color }}
-                                    >
-                                      <IconComp size={18} weight="bold" />
-                                    </div>
+                                      key={i}
+                                      className="absolute top-0 bottom-0 border-r border-slate-200/80 dark:border-white/[0.06]"
+                                      style={{ left: `${leftPct}%` }}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            </div>
 
-                                    <div>
-                                      <span className="text-sm font-black text-slate-800 dark:text-slate-200 block">
+                            {/* Filas de Barras */}
+                            <div className="relative z-10 space-y-3.5 py-1">
+                              {categoryExpenses.items.map((cat, idx) => {
+                                const IconComp = getCategoryIcon(cat.icon_name);
+                                const barWidth = Math.max(4, Math.min(100, (cat.amount / barScale.max) * 100));
+
+                                return (
+                                  <div key={idx} className="flex items-center gap-3 group/modalbar">
+                                    <div className="w-28 sm:w-40 flex items-center justify-end gap-2 shrink-0 text-right pr-2">
+                                      <span
+                                        className="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-200 truncate"
+                                        title={cat.name}
+                                      >
                                         {cat.name}
                                       </span>
-                                      <span className="text-[11px] text-slate-400 font-medium">
-                                        {cat.count} {cat.count === 1 ? 'operación' : 'operaciones'} • Promedio S/. {avgTicket.toFixed(2)}/op
-                                      </span>
+                                      <div
+                                        className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
+                                        style={{ backgroundColor: `${cat.color}25`, color: cat.color }}
+                                      >
+                                        <IconComp size={15} weight="bold" />
+                                      </div>
+                                    </div>
+
+                                    <div className="flex-1 flex items-center relative pr-4 min-w-0">
+                                      <div className="w-full flex items-center relative h-8 sm:h-9">
+                                        <div
+                                          className="h-full rounded-r-xl transition-all flex items-center justify-end pr-2.5 shadow-sm shrink-0"
+                                          style={{
+                                            width: `${barWidth}%`,
+                                            backgroundColor: cat.color,
+                                          }}
+                                        >
+                                          {barWidth > 28 && (
+                                            <span className="text-xs font-mono font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)] whitespace-nowrap">
+                                              S/. {cat.amount.toFixed(2)} ({cat.percentage}%)
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        {barWidth <= 28 && (
+                                          <span className="ml-2 text-xs font-mono font-black text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                                            S/. {cat.amount.toFixed(2)} ({cat.percentage}%)
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
+                                );
+                              })}
+                            </div>
+                          </div>
 
-                                  <div className="text-right">
-                                    <span className="text-sm sm:text-base font-mono font-black text-slate-900 dark:text-white block">
-                                      S/. {cat.amount.toFixed(2)}
-                                    </span>
-                                    <span className="text-xs font-bold text-slate-500">
-                                      {cat.percentage}% del total
+                          {/* Eje X Numérico Modal */}
+                          <div className="pt-2 border-t-2 border-slate-300/80 dark:border-white/20 flex items-center pl-28 sm:pl-40 pr-4">
+                            <div className="relative w-full h-5">
+                              {barScale.ticks.map((tick, i) => {
+                                const leftPct = (tick / barScale.max) * 100;
+                                return (
+                                  <div
+                                    key={i}
+                                    className="absolute top-0 flex flex-col items-center"
+                                    style={{
+                                      left: `${leftPct}%`,
+                                      transform: i === 0 ? 'none' : i === barScale.ticks.length - 1 ? 'translateX(-100%)' : 'translateX(-50%)',
+                                    }}
+                                  >
+                                    <span className="text-[10px] sm:text-xs font-mono font-bold text-slate-500 dark:text-slate-400 select-none">
+                                      S/. {tick}
                                     </span>
                                   </div>
-                                </div>
-
-                                <div className="w-full h-3 rounded-full bg-slate-200 dark:bg-white/[0.08] overflow-hidden p-0.5">
-                                  <div
-                                    className="h-full rounded-full transition-all duration-500"
-                                    style={{
-                                      width: `${cat.relativeBarWidth}%`,
-                                      backgroundColor: cat.color,
-                                      boxShadow: `0 0 12px ${cat.color}50`,
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
+                                );
+                              })}
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>

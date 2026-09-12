@@ -288,7 +288,7 @@ export const LiquidNavigator: React.FC<Props> = ({
             }}
             className={`relative w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-2xl transition-all cursor-pointer select-none ${
               activeModule === 'admin'
-                ? 'bg-zinc-950 text-emerald-400 border-2 border-emerald-500 ring-4 ring-emerald-500/30 shadow-xl shadow-emerald-500/25 dark:bg-white dark:text-emerald-600 dark:border-emerald-600 dark:ring-emerald-500/30'
+                ? 'bg-[#34d399] text-zinc-950 border-2 border-emerald-300 ring-4 ring-emerald-400/40 shadow-xl shadow-emerald-400/30 dark:bg-[#34d399] dark:text-zinc-950 dark:border-emerald-200'
                 : 'bg-zinc-950 text-white border border-zinc-800 hover:border-zinc-700 shadow-xl shadow-black/35 dark:bg-white dark:text-zinc-950 dark:border-zinc-200 dark:hover:border-zinc-300'
             }`}
             title="Base de Datos (Administrador)"
@@ -298,12 +298,12 @@ export const LiquidNavigator: React.FC<Props> = ({
               weight="bold"
               className={
                 activeModule === 'admin'
-                  ? 'text-emerald-400 dark:text-emerald-600 drop-shadow-sm'
+                  ? 'text-zinc-950 drop-shadow-xs'
                   : 'text-white dark:text-zinc-950'
               }
             />
             {activeModule === 'admin' && (
-              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-zinc-950 dark:border-white shadow-sm" />
+              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-zinc-950 border-2 border-[#34d399] shadow-sm" />
             )}
           </motion.button>
         </div>
