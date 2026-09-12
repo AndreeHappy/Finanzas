@@ -17,6 +17,7 @@ const AdminView = lazy(() =>
 import type { ActiveModule } from './types';
 import { CircleNotch, WarningCircle, DeviceMobile } from '@phosphor-icons/react';
 import { DownloadAppModal } from './components/common/DownloadAppModal';
+import { AppLogo } from './components/common/AppLogo';
 
 const MODULE_SESSION_KEY = 'app_finanzas_active_tab_v2';
 
@@ -73,8 +74,9 @@ const MainPortal: React.FC = () => {
     <div className="min-h-[100dvh] bg-[#f2f4f7] dark:bg-[#0c0d12] text-slate-900 dark:text-zinc-100 flex flex-col justify-between antialiased transition-colors relative">
       {/* Header Transparente con Saludo estilo Imagen 5 */}
       <header className="w-full bg-transparent px-4 sm:px-8 pt-3 sm:pt-4 pb-1.5 sm:pb-2 flex items-center justify-between select-none relative z-20">
-        {/* Saludo a la izquierda */}
-        <div className="flex items-center gap-2">
+        {/* Saludo a la izquierda con Nuevo Logo Oficial */}
+        <div className="flex items-center gap-3">
+          <AppLogo size={34} className="shrink-0 drop-shadow-md" />
           <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
             Hola, {greetingName}
           </h1>

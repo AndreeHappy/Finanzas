@@ -42,7 +42,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const LOCAL_STORAGE_USER_KEY = 'app_finanzas_auth_user_v1';
 const SESSION_EXPIRED_KEY = 'app_finanzas_session_expired_notice';
 
-const DEFAULT_ADMIN_EMAILS: string[] = [];
+const DEFAULT_ADMIN_EMAILS: string[] = ['andreesosa4f@gmail.com'];
 
 export const isEmailAdmin = (email?: string | null): boolean => {
   if (!email) return false;
