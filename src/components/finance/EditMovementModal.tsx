@@ -80,10 +80,6 @@ export const EditMovementModal: React.FC<EditMovementModalProps> = ({
     }
   }, [transaction, isOpen, wallets, categories]);
 
-  if (!isOpen || !transaction || typeof document === 'undefined' || !document.body) {
-    return null;
-  }
-
   const safeCats = Array.isArray(categories) ? categories : [];
   const filteredCategories = safeCats.filter((c) => {
     if (!c) return false;
@@ -162,6 +158,11 @@ export const EditMovementModal: React.FC<EditMovementModalProps> = ({
 
     return opts;
   }, [filteredCategories, categoryId, categoryName]);
+
+  // Retorno condicional estricto ÚNICAMENTE DESPUÉS de haber ejecutado todos los hooks de React
+  if (!isOpen || !transaction || typeof document === 'undefined' || !document.body) {
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

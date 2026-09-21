@@ -798,16 +798,18 @@ export const MovementsView: React.FC = () => {
       />
 
       {/* Modal para Editar Movimiento Existente */}
-      <EditMovementModal
-        isOpen={Boolean(editingTx)}
-        onClose={() => setEditingTx(null)}
-        transaction={editingTx}
-        wallets={wallets}
-        categories={categories}
-        onSave={async (id, updates) => {
-          await updateTransaction(id, updates);
-        }}
-      />
+      {editingTx && (
+        <EditMovementModal
+          isOpen={Boolean(editingTx)}
+          onClose={() => setEditingTx(null)}
+          transaction={editingTx}
+          wallets={wallets}
+          categories={categories}
+          onSave={async (id, updates) => {
+            await updateTransaction(id, updates);
+          }}
+        />
+      )}
     </div>
   );
 };
