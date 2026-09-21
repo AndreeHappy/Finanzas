@@ -10,8 +10,12 @@ import {
   PiggyBank,
   ArrowUpRight,
   ArrowDownLeft,
+  CreditCard,
+  Money,
 } from '@phosphor-icons/react';
 import type { Transaction, WalletCard, Category, MovementType } from '../../types';
+import { CustomSelect, type SelectOption } from '../common/CustomSelect';
+import { getCategoryIcon } from '../../constants/iconMap';
 
 interface EditMovementModalProps {
   isOpen: boolean;
@@ -64,7 +68,6 @@ export const EditMovementModal: React.FC<EditMovementModalProps> = ({
 
   if (!isOpen || !transaction) return null;
 
-  // Filtrar categorías según tipo de movimiento si aplica
   const filteredCategories = categories.filter((c) => {
     if (movementType === 'income') {
       return c.type === 'income';
@@ -74,6 +77,35 @@ export const EditMovementModal: React.FC<EditMovementModalProps> = ({
     }
     return c.type === 'expense';
   });
+
+  const walletOptions = React.useMemo<SelectOption[]>(() => {
+    return wallets.map((w) => ({
+      value: w.id,
+      label: w.name,
+      badge: w.type === 'savings' ? 'Ahorro' : w.type === 'cash' ? 'Efectivo' : 'Digital',
+      badgeColor: w.type === 'savings' ? '#f59e0b' : w.type === 'cash' ? '#10b981' : '#3b82f6',
+      icon:
+        w.type === 'savings' ? (
+          <PiggyBank size={15} weight="bold" />
+        ) : w.type === 'cash' ? (
+          <Money size={15} weight="bold" />
+        ) : (
+          <CreditCard size={15} weight="bold" />
+        ),
+    }));
+  }, [wallets]);
+
+  const categoryOptions = React.useMemo<SelectOption[]>(() => {
+    return filteredCategories.map((c) => {
+      const IconComp = getCategoryIcon(c.icon_name);
+      return {
+        value: c.id,
+        label: c.name,
+        colorDot: c.color,
+        icon: <IconComp size={15} weight="bold" />,
+      };
+    });
+  }, [filteredCategories]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -272,50 +304,27 @@ export const EditMovementModal: React.FC<EditMovementModalProps> = ({
               </div>
             </div>
 
-            {/* Tarjeta y Categoría */}
+            {/* Tarjeta y Categoría con Selectores Estilizados */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Tarjeta Asociada */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                  Tarjeta / Cuenta
-                </label>
-                <select
-                  value={walletId}
-                  onChange={(e) => setWalletId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-black/30 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
-                  required
-                >
-                  {wallets.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name} ({w.type === 'savings' ? 'Ahorro' : w.type === 'cash' ? 'Efectivo' : 'Digital'})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <CustomSelect
+                label="Tarjeta / Cuenta"
+                value={walletId}
+                onChange={setWalletId}
+                options={walletOptions}
+                placeholder="Selecciona una tarjeta..."
+              />
 
-              {/* Categoría */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                  Categoría
-                </label>
-                <select
-                  value={categoryId}
-                  onChange={(e) => {
-                    const selId = e.target.value;
-                    setCategoryId(selId);
-                    const found = categories.find((c) => c.id === selId);
-                    if (found) setCategoryName(found.name);
-                  }}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-black/30 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
-                >
-                  <option value="">{categoryName || 'General'}</option>
-                  {filteredCategories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <CustomSelect
+                label="Categoría"
+                value={categoryId}
+                onChange={(selId) => {
+                  setCategoryId(selId);
+                  const found = categories.find((c) => c.id === selId);
+                  if (found) setCategoryName(found.name);
+                }}
+                options={categoryOptions}
+                placeholder="Selecciona una categoría..."
+              />
             </div>
 
             {/* Notas Adicionales */}

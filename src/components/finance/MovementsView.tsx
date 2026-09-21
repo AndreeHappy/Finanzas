@@ -2,8 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileCsv,
-  CaretLeft,
-  CaretRight,
   CreditCard,
   PiggyBank,
   Trash,
@@ -24,6 +22,7 @@ import { ContextualMovementModal } from './ContextualMovementModal';
 import { EditMovementModal } from './EditMovementModal';
 import { sanitizeCsvCell } from '../../utils/security';
 import type { Transaction } from '../../types';
+import { CompactPagination } from '../common/CompactPagination';
 
 
 export const MovementsView: React.FC = () => {
@@ -776,77 +775,15 @@ export const MovementsView: React.FC = () => {
             </div>
           </div>
 
-          {/* Botones de Paginación Inteligente con puntos suspensivos (1 - 2 - 3 - 4 - ... - 11) */}
-          {pageSize !== 'all' && totalPages > 1 && (() => {
-            const getPaginationPages = (current: number, total: number): (number | string)[] => {
-              if (total <= 7) {
-                return Array.from({ length: total }, (_, i) => i + 1);
-              }
-              if (current <= 4) {
-                return [1, 2, 3, 4, 5, '...', total];
-              }
-              if (current >= total - 3) {
-                return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
-              }
-              return [1, '...', current - 1, current, current + 1, '...', total];
-            };
-
-            return (
-              <div className="flex items-center justify-center gap-1 bg-slate-200/80 dark:bg-white/[0.06] p-1 rounded-xl mx-auto sm:mx-0 select-none">
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer disabled:cursor-default select-none outline-none focus:outline-none"
-                  title="Página anterior"
-                >
-                  <CaretLeft size={16} weight="bold" />
-                </motion.button>
-
-                {getPaginationPages(currentPage, totalPages).map((item, idx) => {
-                  if (item === '...') {
-                    return (
-                      <span
-                        key={`ellipsis-${idx}`}
-                        className="w-6 h-7 flex items-center justify-center text-xs font-black text-slate-400 select-none tracking-widest pointer-events-none"
-                      >
-                        ...
-                      </span>
-                    );
-                  }
-
-                  const pg = item as number;
-                  return (
-                    <motion.button
-                      key={pg}
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => handlePageChange(pg)}
-                      className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer select-none outline-none focus:outline-none ${
-                        currentPage === pg
-                          ? 'btn-unified bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                      }`}
-                    >
-                      {pg}
-                    </motion.button>
-                  );
-                })}
-
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer disabled:cursor-default select-none outline-none focus:outline-none"
-                  title="Página siguiente"
-                >
-                  <CaretRight size={16} weight="bold" />
-                </motion.button>
-              </div>
-            );
-          })()}
+          {/* Botones de Paginación Compacta Inteligente (1 2 3 ... 21) */}
+          {pageSize !== 'all' && totalPages > 1 && (
+            <CompactPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+              className="mx-auto sm:mx-0"
+            />
+          )}
         </div>
       </motion.div>
 

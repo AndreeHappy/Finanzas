@@ -26,7 +26,11 @@ import {
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
-import type { UserProfile, WalletCard, Transaction } from '../../types';
+import type { UserProfile, WalletCard, Transaction, Category } from '../../types';
+import { CustomSelect, type SelectOption } from '../common/CustomSelect';
+import { CompactPagination } from '../common/CompactPagination';
+import { getCategoryIcon } from '../../constants/iconMap';
+import { DEFAULT_CATEGORIES } from '../../constants/categories';
 
 interface Props {
   onBack: () => void;
@@ -46,6 +50,13 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUserFilter, setSelectedUserFilter] = useState<string>('all');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Categorías disponibles
+  const [allCategories, setAllCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
+
+  // Paginación para pestaña de movimientos
+  const [adminTxPage, setAdminTxPage] = useState<number>(1);
+  const ADMIN_TX_PAGE_SIZE = 10;
 
   // Estado para el Dropdown estilizado de selección de usuarios
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
@@ -224,6 +235,16 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
         finalTx = directTx || [];
       }
       setAllTransactions(finalTx);
+
+      // 4. Categorías para selectores de movimientos
+      try {
+        const { data: catData } = await supabase.from('categories').select('*');
+        if (catData && catData.length > 0) {
+          setAllCategories([...DEFAULT_CATEGORIES, ...catData]);
+        }
+      } catch (cErr) {
+        console.warn('Categorías no disponibles, usando catálogo por defecto');
+      }
     } catch (err: any) {
       console.error('Error al cargar datos en panel de administración:', err);
       setFeedback({
@@ -670,6 +691,19 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
     });
   }, [allTransactions, selectedUserFilter, searchTerm, userMap, walletMap]);
 
+  // Paginación para tabla de movimientos en Admin
+  const adminTxTotalPages = Math.ceil(filteredTransactions.length / ADMIN_TX_PAGE_SIZE);
+
+  const paginatedTransactions = useMemo(() => {
+    const start = (adminTxPage - 1) * ADMIN_TX_PAGE_SIZE;
+    return filteredTransactions.slice(start, start + ADMIN_TX_PAGE_SIZE);
+  }, [filteredTransactions, adminTxPage]);
+
+  // Reset de página al cambiar filtros
+  useEffect(() => {
+    setAdminTxPage(1);
+  }, [selectedUserFilter, searchTerm]);
+
   // Totales
   const totalVolume = useMemo(() => {
     return allTransactions.reduce((acc, t) => acc + (Number(t.amount) || 0), 0);
@@ -693,6 +727,121 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
       );
     }
   };
+
+  // Opciones de Tarjeta para Modal de Edición de Movimiento en Admin (Filtro por Dueño)
+  const adminEditWalletOptions = useMemo<SelectOption[]>(() => {
+    if (!editingTransaction) return [];
+    const txUserId =
+      editingTransaction.user_id ||
+      walletMap.get(editingTransaction.wallet_id)?.user_id;
+
+    // Solo tarjetas que pertenecen al usuario dueño del movimiento
+    const userWallets = allWallets.filter((w) => w.user_id === txUserId);
+    const walletsToShow = userWallets.length > 0 ? userWallets : allWallets;
+
+    return walletsToShow.map((w) => ({
+      value: w.id,
+      label: w.name,
+      badge: w.type === 'savings' ? 'Ahorro' : w.type === 'cash' ? 'Efectivo' : 'Digital',
+      badgeColor: w.type === 'savings' ? '#f59e0b' : w.type === 'cash' ? '#10b981' : '#3b82f6',
+      icon:
+        w.type === 'savings' ? (
+          <PiggyBank size={15} weight="bold" />
+        ) : w.type === 'cash' ? (
+          <Money size={15} weight="bold" />
+        ) : (
+          <CreditCard size={15} weight="bold" />
+        ),
+    }));
+  }, [allWallets, editingTransaction, walletMap]);
+
+  // Opciones de Categoría para Modal de Edición de Movimiento en Admin
+  const adminEditCategoryOptions = useMemo<SelectOption[]>(() => {
+    const isIncome = editTxType === 'income';
+    const filtered = allCategories.filter((c) =>
+      isIncome ? c.type === 'income' : c.type === 'expense'
+    );
+    const seen = new Set<string>();
+    const opts: SelectOption[] = [];
+
+    filtered.forEach((c) => {
+      const key = c.name.toLowerCase().trim();
+      if (!seen.has(key)) {
+        seen.add(key);
+        const IconComp = getCategoryIcon(c.icon_name);
+        opts.push({
+          value: c.name,
+          label: c.name,
+          colorDot: c.color,
+          icon: <IconComp size={15} weight="bold" />,
+        });
+      }
+    });
+
+    if (editTxCategory && !seen.has(editTxCategory.toLowerCase().trim())) {
+      opts.unshift({
+        value: editTxCategory,
+        label: editTxCategory,
+        colorDot: '#64748B',
+        icon: <Receipt size={15} weight="bold" />,
+      });
+    }
+
+    return opts;
+  }, [allCategories, editTxType, editTxCategory]);
+
+  // Opciones de Tarjeta para Modal de Creación de Movimiento en Admin
+  const adminNewWalletOptions = useMemo<SelectOption[]>(() => {
+    const userWallets = allWallets.filter((w) => w.user_id === newTxUserId);
+    return userWallets.map((w) => ({
+      value: w.id,
+      label: w.name,
+      badge: w.type === 'savings' ? 'Ahorro' : w.type === 'cash' ? 'Efectivo' : 'Digital',
+      badgeColor: w.type === 'savings' ? '#f59e0b' : w.type === 'cash' ? '#10b981' : '#3b82f6',
+      icon:
+        w.type === 'savings' ? (
+          <PiggyBank size={15} weight="bold" />
+        ) : w.type === 'cash' ? (
+          <Money size={15} weight="bold" />
+        ) : (
+          <CreditCard size={15} weight="bold" />
+        ),
+    }));
+  }, [allWallets, newTxUserId]);
+
+  const adminNewCategoryOptions = useMemo<SelectOption[]>(() => {
+    const isIncome = newTxType === 'income';
+    const filtered = allCategories.filter((c) =>
+      isIncome ? c.type === 'income' : c.type === 'expense'
+    );
+    const seen = new Set<string>();
+    const opts: SelectOption[] = [];
+
+    filtered.forEach((c) => {
+      const key = c.name.toLowerCase().trim();
+      if (!seen.has(key)) {
+        seen.add(key);
+        const IconComp = getCategoryIcon(c.icon_name);
+        opts.push({
+          value: c.name,
+          label: c.name,
+          colorDot: c.color,
+          icon: <IconComp size={15} weight="bold" />,
+        });
+      }
+    });
+
+    if (newTxCategory && !seen.has(newTxCategory.toLowerCase().trim())) {
+      opts.unshift({
+        value: newTxCategory,
+        label: newTxCategory,
+        colorDot: '#64748B',
+        icon: <Receipt size={15} weight="bold" />,
+      });
+    }
+
+    return opts;
+  }, [allCategories, newTxType, newTxCategory]);
 
   if (!isAdmin) {
     return (
@@ -1344,7 +1493,7 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
                       </td>
                     </tr>
                   ) : (
-                  filteredTransactions.map((t) => {
+                    paginatedTransactions.map((t) => {
                     const owner = userMap.get(t.user_id);
                     const wallet = walletMap.get(t.wallet_id);
 
@@ -1441,6 +1590,22 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
               </tbody>
             </table>
           </div>
+
+            {/* Paginación Compacta de Movimientos en Admin */}
+            {adminTxTotalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 px-1">
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  Mostrando {(adminTxPage - 1) * ADMIN_TX_PAGE_SIZE + 1} -{' '}
+                  {Math.min(adminTxPage * ADMIN_TX_PAGE_SIZE, filteredTransactions.length)} de{' '}
+                  <strong className="text-slate-900 dark:text-white font-mono">{filteredTransactions.length}</strong> movimientos
+                </span>
+                <CompactPagination
+                  currentPage={adminTxPage}
+                  totalPages={adminTxTotalPages}
+                  onPageChange={setAdminTxPage}
+                />
+              </div>
+            )}
         </div>
       )}
     </div>
@@ -1825,43 +1990,21 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase">
-                      Categoría
-                    </label>
-                    <input
-                      type="text"
-                      value={editTxCategory}
-                      onChange={(e) => setEditTxCategory(e.target.value)}
-                      placeholder="Ej. Alimentación, Entretenimiento..."
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-black/30 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
-                      required
-                    />
-                  </div>
+                  <CustomSelect
+                    label="Categoría"
+                    value={editTxCategory}
+                    onChange={setEditTxCategory}
+                    options={adminEditCategoryOptions}
+                    placeholder="Selecciona una categoría..."
+                  />
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase">
-                      Tarjeta / Cuenta Asociada
-                    </label>
-                    <select
-                      value={editTxWalletId}
-                      onChange={(e) => setEditTxWalletId(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-black/30 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
-                      required
-                    >
-                      {allWallets
-                        .filter(
-                          (w) =>
-                            w.user_id === editingTransaction.user_id ||
-                            selectedUserFilter === 'all'
-                        )
-                        .map((w) => (
-                          <option key={w.id} value={w.id}>
-                            {w.name} ({w.type})
-                          </option>
-                        ))}
-                    </select>
-                  </div>
+                  <CustomSelect
+                    label="Tarjeta / Cuenta Asociada"
+                    value={editTxWalletId}
+                    onChange={setEditTxWalletId}
+                    options={adminEditWalletOptions}
+                    placeholder="Selecciona una tarjeta..."
+                  />
                 </div>
 
                 <div>
@@ -2031,23 +2174,13 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
                   }
 
                   return (
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase">
-                        Tarjeta / Cuenta Asociada
-                      </label>
-                      <select
-                        value={newTxWalletId}
-                        onChange={(e) => setNewTxWalletId(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-black/30 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
-                        required
-                      >
-                        {targetUserWallets.map((w) => (
-                          <option key={w.id} value={w.id}>
-                            {w.name} ({w.type === 'savings' ? 'Ahorro' : w.type === 'cash' ? 'Efectivo' : 'Digital'})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <CustomSelect
+                      label="Tarjeta / Cuenta Asociada"
+                      value={newTxWalletId}
+                      onChange={setNewTxWalletId}
+                      options={adminNewWalletOptions}
+                      placeholder="Selecciona una tarjeta..."
+                    />
                   );
                 })()}
 
@@ -2151,19 +2284,13 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
                 </div>
 
                 {/* Categoría */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase">
-                    Categoría
-                  </label>
-                  <input
-                    type="text"
-                    value={newTxCategory}
-                    onChange={(e) => setNewTxCategory(e.target.value)}
-                    placeholder="Ej. Alimentación, Sueldo, General..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-black/30 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
-                    required
-                  />
-                </div>
+                <CustomSelect
+                  label="Categoría"
+                  value={newTxCategory}
+                  onChange={setNewTxCategory}
+                  options={adminNewCategoryOptions}
+                  placeholder="Selecciona una categoría..."
+                />
 
                 {/* Notas */}
                 <div>

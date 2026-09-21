@@ -17,18 +17,30 @@ interface Props {
 }
 
 const COLOR_PALETTE = [
+  '#EAB308', // Amarillo vivo
+  '#FACC15', // Amarillo brillante
+  '#CA8A04', // Dorado oro
+  '#D97706', // Dorado ámbar
+  '#F59E0B', // Ámbar cálido
+  '#B45309', // Bronce / Cobre
   '#10B981', // Emerald
-  '#06B6D4', // Cyan
-  '#3B82F6', // Blue
-  '#6366F1', // Indigo
-  '#8B5CF6', // Purple
-  '#EC4899', // Pink
-  '#EF4444', // Red
-  '#F97316', // Orange
-  '#F59E0B', // Amber
+  '#059669', // Verde bosque
   '#84CC16', // Lime
   '#14B8A6', // Teal
+  '#06B6D4', // Cyan
+  '#0EA5E9', // Sky blue
+  '#3B82F6', // Blue
+  '#1D4ED8', // Azul marino
+  '#6366F1', // Indigo
+  '#8B5CF6', // Purple
+  '#A855F7', // Violeta
+  '#EC4899', // Pink
+  '#F43F5E', // Rose
+  '#EF4444', // Red
+  '#F97316', // Orange
+  '#FB923C', // Melocotón
   '#64748B', // Slate
+  '#78716C', // Stone
 ];
 
 export const CategoriesManagerModal: React.FC<Props> = ({ isOpen, onClose }) => {
@@ -285,7 +297,7 @@ export const CategoriesManagerModal: React.FC<Props> = ({ isOpen, onClose }) => 
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-6 sm:grid-cols-8 gap-2 max-h-28 overflow-y-auto p-1.5 bg-white dark:bg-black/40 rounded-xl border border-slate-200 dark:border-white/[0.08]">
+                  <div className="grid grid-cols-6 sm:grid-cols-8 gap-2 max-h-40 sm:max-h-44 overflow-y-auto p-1.5 bg-white dark:bg-black/40 rounded-xl border border-slate-200 dark:border-white/[0.08]">
                     {availableIconsForEdit.map((iconName) => {
                       const IconComp = ICON_MAP[iconName];
                       const isSel = editIcon === iconName;
@@ -391,7 +403,7 @@ export const CategoriesManagerModal: React.FC<Props> = ({ isOpen, onClose }) => 
                       Has utilizado todos los iconos del catálogo para este tipo de categoría.
                     </p>
                   ) : (
-                    <div className="grid grid-cols-6 sm:grid-cols-8 gap-2 max-h-28 overflow-y-auto p-1.5 bg-white dark:bg-black/20 rounded-xl border border-slate-200 dark:border-white/[0.08]">
+                    <div className="grid grid-cols-6 sm:grid-cols-8 gap-2 max-h-40 sm:max-h-44 overflow-y-auto p-1.5 bg-white dark:bg-black/20 rounded-xl border border-slate-200 dark:border-white/[0.08]">
                       {availableIconsForTab.map((iconName) => {
                         const IconComp = ICON_MAP[iconName];
                         const isSel = selectedIcon === iconName;

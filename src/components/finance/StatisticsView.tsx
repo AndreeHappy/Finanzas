@@ -444,17 +444,17 @@ export const StatisticsView: React.FC = () => {
             </span>
           </div>
 
-          {/* Gráfico de Barras Horizontales con Ejes y Cuadrícula (Fiel a la Imagen 1) */}
-          <div className="flex-1 py-2 flex flex-col justify-between min-h-[270px]">
+          {/* Gráfico de Barras Horizontales con Ejes y Cuadrícula (Centrado Verticalmente) */}
+          <div className="flex-1 flex flex-col justify-center my-auto py-3">
             {categoryExpenses.items.length === 0 ? (
-              <div className="py-16 text-center text-slate-400 text-xs font-medium">
+              <div className="py-12 text-center text-slate-400 text-xs font-medium">
                 No hay gastos registrados en {selectedPeriod.label}.
               </div>
             ) : (
-              <div className="relative w-full flex-1 flex flex-col justify-between">
-                {/* Área de Barras con Cuadrícula Vertical de Fondo */}
-                <div className="relative w-full flex-1 max-h-[250px] overflow-y-auto pr-1">
-                  {/* Líneas de Cuadrícula Verticales de Fondo que cruzan todo el gráfico */}
+              <div className="relative w-full flex flex-col">
+                {/* Contenedor de Barras con Cuadrícula Vertical de Fondo Compartida */}
+                <div className="relative w-full">
+                  {/* Líneas de Cuadrícula Verticales de Fondo que cruzan todo el bloque de barras */}
                   <div className="absolute inset-0 left-24 sm:left-32 right-3 pointer-events-none z-0">
                     <div className="relative w-full h-full">
                       {barScale.ticks.map((tick, i) => {
@@ -471,7 +471,7 @@ export const StatisticsView: React.FC = () => {
                   </div>
 
                   {/* Filas Horizontales: Categoría en Eje Y + Barra Horizontal hacia la Derecha */}
-                  <div className="relative z-10 space-y-2.5 py-1">
+                  <div className="relative z-10 space-y-2.5 py-1 max-h-[340px] sm:max-h-[380px] overflow-y-auto pr-1">
                     {categoryExpenses.items.map((cat, idx) => {
                       const IconComp = getCategoryIcon(cat.icon_name);
                       const barWidth = Math.max(3, Math.min(100, (cat.amount / barScale.max) * 100));
@@ -527,8 +527,8 @@ export const StatisticsView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Eje X Numérico al Fondo (Idéntico a la imagen de referencia con ticks 0, 100, 200, 300...) */}
-                <div className="mt-2 pt-1.5 border-t-2 border-slate-300/80 dark:border-white/20 flex items-center pl-24 sm:pl-32 pr-3">
+                {/* Eje X Numérico directamente adyacente a la cuadrícula */}
+                <div className="mt-1 pt-1.5 border-t-2 border-slate-300/80 dark:border-white/20 flex items-center pl-24 sm:pl-32 pr-3">
                   <div className="relative w-full h-4">
                     {barScale.ticks.map((tick, i) => {
                       const leftPct = (tick / barScale.max) * 100;
