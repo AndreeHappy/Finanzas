@@ -12,10 +12,12 @@ import {
   ArrowDownLeft,
   CreditCard,
   Money,
+  Tag,
 } from '@phosphor-icons/react';
 import type { Transaction, WalletCard, Category, MovementType } from '../../types';
 import { CustomSelect, type SelectOption } from '../common/CustomSelect';
 import { getCategoryIcon } from '../../constants/iconMap';
+import { parseLocalDateParts } from '../../utils/date';
 
 interface EditMovementModalProps {
   isOpen: boolean;
@@ -30,8 +32,8 @@ export const EditMovementModal: React.FC<EditMovementModalProps> = ({
   isOpen,
   onClose,
   transaction,
-  wallets,
-  categories,
+  wallets = [],
+  categories = [],
   onSave,
 }) => {
   const [concept, setConcept] = useState('');
@@ -45,30 +47,46 @@ export const EditMovementModal: React.FC<EditMovementModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Inicializar campos cuando se abre el modal con una transacción
+  // Inicializar campos cuando se abre el modal con una transacción de forma 100% segura
   useEffect(() => {
     if (transaction && isOpen) {
       setConcept(transaction.concept || '');
       setAmount(String(Math.abs(Number(transaction.amount) || 0)));
       setMovementType(transaction.type || 'expense');
-      setWalletId(transaction.wallet_id || wallets[0]?.id || '');
-      setCategoryId(transaction.category_id || '');
-      setCategoryName(transaction.category_name || 'General');
+      
+      const safeWallets = Array.isArray(wallets) ? wallets : [];
+      const initialWalletId = transaction.wallet_id || safeWallets[0]?.id || '';
+      setWalletId(initialWalletId);
 
-      const formattedDate = transaction.date
-        ? new Date(transaction.date).toISOString().split('T')[0]
-        : new Date().toISOString().split('T')[0];
+      const initialCatName = transaction.category_name || 'General';
+      setCategoryName(initialCatName);
+
+      const safeCats = Array.isArray(categories) ? categories : [];
+      const foundCat = safeCats.find(
+        (c) =>
+          (transaction.category_id && c && c.id === transaction.category_id) ||
+          (c && c.name && c.name.toLowerCase().trim() === initialCatName.toLowerCase().trim())
+      );
+      setCategoryId(foundCat ? foundCat.id : (transaction.category_id || ''));
+
+      // Usar parseLocalDateParts para evitar RangeError: Invalid time value
+      const dateParts = parseLocalDateParts(transaction.date);
+      const formattedDate = `${dateParts.year}-${String(dateParts.month + 1).padStart(2, '0')}-${String(dateParts.day).padStart(2, '0')}`;
       setDate(formattedDate);
 
       setNotes(transaction.notes || '');
       setError(null);
       setIsSubmitting(false);
     }
-  }, [transaction, isOpen, wallets]);
+  }, [transaction, isOpen, wallets, categories]);
 
-  if (!isOpen || !transaction) return null;
+  if (!isOpen || !transaction || typeof document === 'undefined' || !document.body) {
+    return null;
+  }
 
-  const filteredCategories = categories.filter((c) => {
+  const safeCats = Array.isArray(categories) ? categories : [];
+  const filteredCategories = safeCats.filter((c) => {
+    if (!c) return false;
     if (movementType === 'income') {
       return c.type === 'income';
     }
@@ -78,8 +96,9 @@ export const EditMovementModal: React.FC<EditMovementModalProps> = ({
     return c.type === 'expense';
   });
 
+  const safeWallets = Array.isArray(wallets) ? wallets : [];
   const walletOptions = React.useMemo<SelectOption[]>(() => {
-    return wallets.map((w) => ({
+    const opts: SelectOption[] = safeWallets.map((w) => ({
       value: w.id,
       label: w.name,
       badge: w.type === 'savings' ? 'Ahorro' : w.type === 'cash' ? 'Efectivo' : 'Digital',
@@ -93,19 +112,56 @@ export const EditMovementModal: React.FC<EditMovementModalProps> = ({
           <CreditCard size={15} weight="bold" />
         ),
     }));
-  }, [wallets]);
+
+    if (walletId && !opts.some((o) => o.value === walletId)) {
+      opts.unshift({
+        value: walletId,
+        label: 'Tarjeta Asociada',
+        badge: 'Digital',
+        badgeColor: '#3b82f6',
+        icon: <CreditCard size={15} weight="bold" />,
+      });
+    }
+
+    return opts;
+  }, [safeWallets, walletId]);
 
   const categoryOptions = React.useMemo<SelectOption[]>(() => {
-    return filteredCategories.map((c) => {
-      const IconComp = getCategoryIcon(c.icon_name);
-      return {
-        value: c.id,
-        label: c.name,
-        colorDot: c.color,
-        icon: <IconComp size={15} weight="bold" />,
-      };
+    const opts: SelectOption[] = [];
+    const seen = new Set<string>();
+
+    filteredCategories.forEach((c) => {
+      if (!c) return;
+      const key = (c.id || c.name).toLowerCase().trim();
+      if (!seen.has(key)) {
+        seen.add(key);
+        const IconComp = getCategoryIcon(c.icon_name);
+        opts.push({
+          value: c.id,
+          label: c.name,
+          colorDot: c.color,
+          icon: <IconComp size={15} weight="bold" />,
+        });
+      }
     });
-  }, [filteredCategories]);
+
+    const hasCurrent = opts.some(
+      (o) =>
+        (categoryId && o.value === categoryId) ||
+        (categoryName && o.label.toLowerCase().trim() === categoryName.toLowerCase().trim())
+    );
+
+    if (!hasCurrent && categoryName) {
+      opts.unshift({
+        value: categoryId || 'current-cat',
+        label: categoryName,
+        colorDot: '#64748B',
+        icon: <Tag size={15} weight="bold" />,
+      });
+    }
+
+    return opts;
+  }, [filteredCategories, categoryId, categoryName]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,16 +184,23 @@ export const EditMovementModal: React.FC<EditMovementModalProps> = ({
     setError(null);
 
     try {
-      const selectedCat = categories.find((c) => c.id === categoryId);
+      const selectedCat = safeCats.find((c) => c && c.id === categoryId);
       const finalCatName = selectedCat ? selectedCat.name : (categoryName.trim() || 'General');
-      const targetDate = date ? new Date(`${date}T12:00:00`).toISOString() : transaction.date;
+
+      let targetDate = transaction.date;
+      if (date) {
+        const [y, m, d] = date.split('-').map(Number);
+        const now = new Date();
+        const localD = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds());
+        targetDate = localD.toISOString();
+      }
 
       await onSave(transaction.id, {
         concept: concept.trim(),
         amount: parsedAmount,
         type: movementType,
         wallet_id: walletId,
-        category_id: categoryId || undefined,
+        category_id: (selectedCat?.id || categoryId) || undefined,
         category_name: finalCatName,
         date: targetDate,
         notes: notes.trim() || undefined,
@@ -153,7 +216,7 @@ export const EditMovementModal: React.FC<EditMovementModalProps> = ({
 
   return createPortal(
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+      <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}

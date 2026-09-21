@@ -16,7 +16,7 @@ interface CustomSelectProps {
   label?: string;
   value: string;
   onChange: (val: string) => void;
-  options: SelectOption[];
+  options?: SelectOption[];
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -26,7 +26,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
   label,
   value,
   onChange,
-  options,
+  options = [],
   placeholder = 'Selecciona una opción...',
   disabled = false,
   className = '',
@@ -34,7 +34,8 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const selectedOption = options.find((opt) => opt.value === value);
+  const safeOptions = Array.isArray(options) ? options : [];
+  const selectedOption = safeOptions.find((opt) => Boolean(opt && opt.value === value));
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -136,12 +137,13 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
             transition={{ duration: 0.15, ease: 'easeOut' }}
             className="absolute left-0 right-0 mt-1.5 z-50 rounded-2xl bg-white dark:bg-[#181a26] border border-slate-200 dark:border-white/[0.12] shadow-2xl p-1.5 max-h-56 overflow-y-auto space-y-0.5 backdrop-blur-xl"
           >
-            {options.length === 0 ? (
+            {safeOptions.length === 0 ? (
               <div className="py-3 px-3 text-center text-xs text-slate-400">
                 No hay opciones disponibles
               </div>
             ) : (
-              options.map((opt) => {
+              safeOptions.map((opt) => {
+                if (!opt) return null;
                 const isSelected = opt.value === value;
                 return (
                   <button

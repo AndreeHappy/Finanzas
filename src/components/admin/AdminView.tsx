@@ -31,6 +31,7 @@ import { CustomSelect, type SelectOption } from '../common/CustomSelect';
 import { CompactPagination } from '../common/CompactPagination';
 import { getCategoryIcon } from '../../constants/iconMap';
 import { DEFAULT_CATEGORIES } from '../../constants/categories';
+import { parseLocalDateParts } from '../../utils/date';
 
 interface Props {
   onBack: () => void;
@@ -283,12 +284,13 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
 
   const handleOpenEditTransaction = (tx: Transaction) => {
     setEditingTransaction(tx);
-    setEditTxConcept(tx.concept);
+    setEditTxConcept(tx.concept || '');
     setEditTxAmount(Number(tx.amount || 0).toFixed(2));
-    setEditTxType(tx.type);
+    setEditTxType(tx.type || 'expense');
     setEditTxCategory(tx.category_name || 'General');
-    setEditTxWalletId(tx.wallet_id);
-    const txDate = tx.date ? new Date(tx.date).toISOString().split('T')[0] : '';
+    setEditTxWalletId(tx.wallet_id || '');
+    const dateParts = parseLocalDateParts(tx.date);
+    const txDate = `${dateParts.year}-${String(dateParts.month + 1).padStart(2, '0')}-${String(dateParts.day).padStart(2, '0')}`;
     setEditTxDate(txDate);
     setEditTxNotes(tx.notes || '');
   };
@@ -736,10 +738,10 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
       walletMap.get(editingTransaction.wallet_id)?.user_id;
 
     // Solo tarjetas que pertenecen al usuario dueño del movimiento
-    const userWallets = allWallets.filter((w) => w.user_id === txUserId);
-    const walletsToShow = userWallets.length > 0 ? userWallets : allWallets;
+    const userWallets = (allWallets || []).filter((w) => w && w.user_id === txUserId);
+    const walletsToShow = userWallets.length > 0 ? userWallets : (allWallets || []);
 
-    return walletsToShow.map((w) => ({
+    const opts: SelectOption[] = walletsToShow.map((w) => ({
       value: w.id,
       label: w.name,
       badge: w.type === 'savings' ? 'Ahorro' : w.type === 'cash' ? 'Efectivo' : 'Digital',
@@ -753,7 +755,19 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
           <CreditCard size={15} weight="bold" />
         ),
     }));
-  }, [allWallets, editingTransaction, walletMap]);
+
+    if (editTxWalletId && !opts.some((o) => o.value === editTxWalletId)) {
+      opts.unshift({
+        value: editTxWalletId,
+        label: 'Tarjeta Asociada',
+        badge: 'Digital',
+        badgeColor: '#3b82f6',
+        icon: <CreditCard size={15} weight="bold" />,
+      });
+    }
+
+    return opts;
+  }, [allWallets, editingTransaction, walletMap, editTxWalletId]);
 
   // Opciones de Categoría para Modal de Edición de Movimiento en Admin
   const adminEditCategoryOptions = useMemo<SelectOption[]>(() => {
@@ -1552,7 +1566,7 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
                           </span>
                         </td>
                         <td className="py-3 px-4 font-mono text-[11px] text-slate-400">
-                          {new Date(t.date).toLocaleDateString('es-PE')}
+                          {parseLocalDateParts(t.date).formattedDate}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
