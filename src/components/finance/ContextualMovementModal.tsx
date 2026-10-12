@@ -14,6 +14,7 @@ import {
   Check,
 } from '@phosphor-icons/react';
 import { CurrencyInput } from '../ui/CurrencyInput';
+import { CustomDatePicker } from '../common/CustomDatePicker';
 import { getCategoryIcon } from '../../constants/iconMap';
 import type { WalletCard, Category, MovementType } from '../../types';
 
@@ -600,11 +601,9 @@ export const ContextualMovementModal: React.FC<Props> = ({
               <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
                 <CalendarBlank size={14} /> FECHA
               </label>
-              <input
-                type="date"
+              <CustomDatePicker
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-white/[0.04] text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                onChange={setDate}
               />
             </div>
 

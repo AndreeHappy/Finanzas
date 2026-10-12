@@ -223,22 +223,60 @@ export const StatisticsView: React.FC = () => {
     };
   }, [selectedPeriodTx, categories]);
 
-  // Escala numérica para el Gráfico de Barras Horizontales (Estilo Imagen 1 de Referencia)
+  // Escala numérica dinámica para el Gráfico de Barras Horizontales (Adaptativa y ceñida al valor mayor)
   const barScale = useMemo(() => {
-    const maxVal = categoryExpenses.maxAmount || 100;
-    if (maxVal <= 50) return { max: 50, ticks: [0, 10, 20, 30, 40, 50] };
-    if (maxVal <= 100) return { max: 100, ticks: [0, 25, 50, 75, 100] };
-    if (maxVal <= 250) return { max: 250, ticks: [0, 50, 100, 150, 200, 250] };
-    if (maxVal <= 500) return { max: 500, ticks: [0, 100, 200, 300, 400, 500] };
-    if (maxVal <= 1000) return { max: 1000, ticks: [0, 200, 400, 600, 800, 1000] };
-    if (maxVal <= 2000) return { max: 2000, ticks: [0, 500, 1000, 1500, 2000] };
-    if (maxVal <= 5000) return { max: 5000, ticks: [0, 1000, 2000, 3000, 4000, 5000] };
-    const step = Math.ceil(maxVal / 500) * 100;
-    const max = step * 5;
-    return {
-      max,
-      ticks: [0, step, step * 2, step * 3, step * 4, step * 5],
-    };
+    const maxVal = categoryExpenses.maxAmount || 10;
+    if (maxVal <= 10) {
+      return { max: 10, ticks: [0, 2, 4, 6, 8, 10] };
+    }
+
+    const exponent = Math.floor(Math.log10(maxVal));
+    const base = Math.pow(10, exponent);
+    const fraction = maxVal / base; // Rango entre 1.0 y 9.999...
+
+    let niceFraction: number;
+    let numTicks: number;
+
+    if (fraction <= 1.25) {
+      niceFraction = 1.25;
+      numTicks = 5;
+    } else if (fraction <= 1.5) {
+      niceFraction = 1.5;
+      numTicks = 3;
+    } else if (fraction <= 2.0) {
+      niceFraction = 2.0;
+      numTicks = 4;
+    } else if (fraction <= 2.5) {
+      niceFraction = 2.5;
+      numTicks = 5;
+    } else if (fraction <= 3.0) {
+      niceFraction = 3.0;
+      numTicks = 3;
+    } else if (fraction <= 4.0) {
+      niceFraction = 4.0;
+      numTicks = 4;
+    } else if (fraction <= 5.0) {
+      niceFraction = 5.0;
+      numTicks = 5;
+    } else if (fraction <= 6.0) {
+      niceFraction = 6.0;
+      numTicks = 4;
+    } else if (fraction <= 8.0) {
+      niceFraction = 8.0;
+      numTicks = 4;
+    } else {
+      niceFraction = 10.0;
+      numTicks = 5;
+    }
+
+    const max = Math.round(niceFraction * base);
+    const step = max / numTicks;
+    const ticks: number[] = [];
+    for (let i = 0; i <= numTicks; i++) {
+      ticks.push(Math.round(i * step));
+    }
+
+    return { max, ticks };
   }, [categoryExpenses.maxAmount]);
 
   // 2. DATOS DEL GRÁFICO DE PASTEL (INGRESOS VS GASTOS) DEL MES SELECCIONADO
@@ -389,6 +427,57 @@ export const StatisticsView: React.FC = () => {
 
   return (
     <div className="w-full max-w-6xl 2xl:max-w-7xl mx-auto space-y-4 lg:space-y-5 pb-16 sm:pb-20">
+      {/* 1. Barra Superior con Selector Global de Mes y Año (Estilo Unificado Blanco y Negro) */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white/80 dark:bg-[#13141c]/80 backdrop-blur-xl p-3.5 sm:p-4 rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-lg shadow-slate-900/[0.03] dark:shadow-black/30">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="w-10 h-10 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shadow-md shrink-0">
+            <Calendar size={20} weight="bold" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight">
+                Estadísticas de {selectedPeriod.label}
+              </h2>
+              {selectedMonthIndex === availableMonths.length - 1 && (
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                  Mes Actual
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              Datos consolidados de gastos, ingresos y balance acumulado
+            </p>
+          </div>
+        </div>
+
+        {/* Botón Selector de Meses y Años en Blanco y Negro Unificado (btn-unified) */}
+        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-md shadow-black/10 dark:shadow-black/30 border border-zinc-800 dark:border-zinc-200 self-stretch sm:self-auto justify-between sm:justify-center">
+          <button
+            type="button"
+            onClick={handlePrevMonth}
+            disabled={selectedMonthIndex === 0}
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-white dark:text-zinc-950 hover:bg-white/20 dark:hover:bg-zinc-950/10 active:scale-95 disabled:opacity-25 disabled:cursor-not-allowed transition-all cursor-pointer"
+            title="Mes anterior"
+          >
+            <CaretLeft size={16} weight="bold" />
+          </button>
+
+          <span className="px-3 text-xs sm:text-sm font-black font-mono tracking-wider whitespace-nowrap min-w-[130px] text-center select-none">
+            {selectedPeriod.label}
+          </span>
+
+          <button
+            type="button"
+            onClick={handleNextMonth}
+            disabled={selectedMonthIndex === availableMonths.length - 1}
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-white dark:text-zinc-950 hover:bg-white/20 dark:hover:bg-zinc-950/10 active:scale-95 disabled:opacity-25 disabled:cursor-not-allowed transition-all cursor-pointer"
+            title="Mes siguiente"
+          >
+            <CaretRight size={16} weight="bold" />
+          </button>
+        </div>
+      </div>
+
       {/* Grid de Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 items-stretch">
         
@@ -576,7 +665,7 @@ export const StatisticsView: React.FC = () => {
             onClick={() => setExpandedModal('monthlyPie')}
             className="glass-panel rounded-3xl p-4 sm:p-5 shadow-xl shadow-slate-900/[0.05] dark:shadow-black/40 cursor-pointer group hover:border-emerald-500/40 transition-all"
           >
-            {/* Cabecera con Selector de Mes y Año Interactivo */}
+            {/* Cabecera del Panel de Pastel */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/[0.08] mb-2">
               <div className="flex items-center gap-2">
                 <ChartPieSlice size={19} weight="bold" className="text-emerald-600 dark:text-emerald-400" />
@@ -585,34 +674,22 @@ export const StatisticsView: React.FC = () => {
                 </h3>
               </div>
 
-              {/* Selector de Mes con Flechas */}
-              <div
-                className="flex items-center gap-1 bg-slate-100 dark:bg-white/[0.06] p-1 rounded-xl border border-slate-200/80 dark:border-white/10"
-                onClick={(e) => e.stopPropagation()}
-              >
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handlePrevMonth}
-                  disabled={selectedMonthIndex === 0}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
-                  title="Mes anterior"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedModal('monthlyPie');
+                  }}
+                  className="flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white px-2 py-1 rounded-lg bg-slate-100 dark:bg-white/[0.05] hover:bg-slate-200 dark:hover:bg-white/[0.1] transition-colors cursor-pointer"
+                  title="Ampliar detalle"
                 >
-                  <CaretLeft size={14} weight="bold" />
+                  <ArrowsOutSimple size={13} weight="bold" />
+                  <span className="hidden sm:inline">Ampliar</span>
                 </button>
-
-                <span className="text-xs font-black px-2 text-slate-900 dark:text-white font-mono whitespace-nowrap min-w-[92px] text-center select-none">
-                  {selectedPeriod.label}
+                <span className="text-xs font-bold text-slate-500 font-mono">
+                  {selectedPeriod.shortLabel}
                 </span>
-
-                <button
-                  type="button"
-                  onClick={handleNextMonth}
-                  disabled={selectedMonthIndex === availableMonths.length - 1}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
-                  title="Mes siguiente"
-                >
-                  <CaretRight size={14} weight="bold" />
-                </button>
               </div>
             </div>
 
@@ -1139,19 +1216,19 @@ export const StatisticsView: React.FC = () => {
                   {/* MODAL 2: PASTEL INGRESOS VS GASTOS AMPLIADO */}
                   {expandedModal === 'monthlyPie' && (
                     <div className="space-y-6">
-                      {/* Selector de Mes dentro del Modal */}
-                      <div className="flex items-center justify-center gap-2 p-2 rounded-2xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 max-w-sm mx-auto">
+                      {/* Selector de Mes dentro del Modal (Estilo Unificado Blanco y Negro) */}
+                      <div className="flex items-center justify-center gap-2 p-1.5 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border border-zinc-800 dark:border-zinc-200 max-w-xs mx-auto shadow-lg shadow-black/10 dark:shadow-black/30">
                         <button
                           type="button"
                           onClick={handlePrevMonth}
                           disabled={selectedMonthIndex === 0}
-                          className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                          className="w-8 h-8 rounded-xl flex items-center justify-center text-white dark:text-zinc-950 hover:bg-white/20 dark:hover:bg-zinc-950/10 active:scale-95 disabled:opacity-25 disabled:cursor-not-allowed transition-all cursor-pointer"
                           title="Mes anterior"
                         >
                           <CaretLeft size={16} weight="bold" />
                         </button>
 
-                        <span className="text-sm font-black px-4 text-slate-900 dark:text-white font-mono select-none">
+                        <span className="text-sm font-black px-4 font-mono select-none">
                           {selectedPeriod.label}
                         </span>
 
@@ -1159,7 +1236,7 @@ export const StatisticsView: React.FC = () => {
                           type="button"
                           onClick={handleNextMonth}
                           disabled={selectedMonthIndex === availableMonths.length - 1}
-                          className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                          className="w-8 h-8 rounded-xl flex items-center justify-center text-white dark:text-zinc-950 hover:bg-white/20 dark:hover:bg-zinc-950/10 active:scale-95 disabled:opacity-25 disabled:cursor-not-allowed transition-all cursor-pointer"
                           title="Mes siguiente"
                         >
                           <CaretRight size={16} weight="bold" />

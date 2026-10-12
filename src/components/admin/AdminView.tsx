@@ -28,6 +28,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 import type { UserProfile, WalletCard, Transaction, Category } from '../../types';
 import { CustomSelect, type SelectOption } from '../common/CustomSelect';
+import { CustomDatePicker } from '../common/CustomDatePicker';
 import { CompactPagination } from '../common/CompactPagination';
 import { getCategoryIcon } from '../../constants/iconMap';
 import { DEFAULT_CATEGORIES } from '../../constants/categories';
@@ -1941,12 +1942,9 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
                     <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase">
                       Fecha del Registro
                     </label>
-                    <input
-                      type="date"
+                    <CustomDatePicker
                       value={editTxDate}
-                      onChange={(e) => setEditTxDate(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-black/30 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
-                      required
+                      onChange={setEditTxDate}
                     />
                   </div>
                 </div>
@@ -2234,12 +2232,9 @@ export const AdminView: React.FC<Props> = ({ onBack }) => {
                     <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase">
                       Fecha del Registro
                     </label>
-                    <input
-                      type="date"
+                    <CustomDatePicker
                       value={newTxDate}
-                      onChange={(e) => setNewTxDate(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-black/30 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
-                      required
+                      onChange={setNewTxDate}
                     />
                   </div>
                 </div>

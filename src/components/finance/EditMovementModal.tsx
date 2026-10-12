@@ -16,6 +16,7 @@ import {
 } from '@phosphor-icons/react';
 import type { Transaction, WalletCard, Category, MovementType } from '../../types';
 import { CustomSelect, type SelectOption } from '../common/CustomSelect';
+import { CustomDatePicker } from '../common/CustomDatePicker';
 import { getCategoryIcon } from '../../constants/iconMap';
 import { parseLocalDateParts } from '../../utils/date';
 
@@ -298,12 +299,9 @@ export const EditMovementModal: React.FC<EditMovementModalProps> = ({
                 <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                   <CalendarBlank size={13} weight="bold" /> Fecha
                 </label>
-                <input
-                  type="date"
+                <CustomDatePicker
                   value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-black/30 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  onChange={setDate}
                 />
               </div>
             </div>
