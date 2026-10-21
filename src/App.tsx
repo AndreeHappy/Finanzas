@@ -1,13 +1,15 @@
 import React, { useState, Suspense, lazy } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FinanceProvider } from './context/FinanceContext';
-import { ThemeProvider } from './context/ThemeContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { AuthView } from './components/auth/AuthView';
 import { InicioView } from './components/finance/InicioView';
 import { MovementsView } from './components/finance/MovementsView';
 import { StatisticsView } from './components/finance/StatisticsView';
+import { AutomatizacionView } from './components/automation/AutomatizacionView';
+import { CategoriasView } from './components/categories/CategoriasView';
 import { SettingsView } from './components/settings/SettingsView';
-import { LiquidNavigator } from './components/navigation/LiquidNavigator';
+import { SidebarNav } from './components/navigation/SidebarNav';
 import { InteractiveBackground } from './components/ui/InteractiveBackground';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -15,15 +17,15 @@ const AdminView = lazy(() =>
   import('./components/admin/AdminView').then((module) => ({ default: module.AdminView }))
 );
 import type { ActiveModule } from './types';
-import { CircleNotch, WarningCircle, DeviceMobile } from '@phosphor-icons/react';
-import { DownloadAppModal } from './components/common/DownloadAppModal';
+import { CircleNotch, WarningCircle, Sun, Moon } from '@phosphor-icons/react';
 import { AppLogo } from './components/common/AppLogo';
 
-const MODULE_SESSION_KEY = 'app_finanzas_active_tab_v2';
+const MODULE_SESSION_KEY = 'app_finanzas_active_tab_v3';
 
 
 const MainPortal: React.FC = () => {
   const { user, profile, loading, logout, isAdmin, inactivitySecondsLeft, extendSession } = useAuth();
+  const { mode, toggleTheme } = useTheme();
 
   // Nombre de visualización personalizado
   const greetingName =
@@ -32,7 +34,9 @@ const MainPortal: React.FC = () => {
     (profile?.full_name ? profile.full_name.trim().split(' ')[0] : 'Usuario');
 
   const [activeModule, setActiveModuleState] = useState<ActiveModule>('inicio');
-  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState<boolean>(() => {
+    return localStorage.getItem('sidebar_expanded') === 'true';
+  });
 
   // Siempre abrir en 'inicio' al iniciar sesión
   React.useEffect(() => {
@@ -71,36 +75,64 @@ const MainPortal: React.FC = () => {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#f2f4f7] dark:bg-[#0c0d12] text-slate-900 dark:text-zinc-100 flex flex-col justify-between antialiased transition-colors relative">
-      {/* Header Transparente con Saludo estilo Imagen 5 */}
-      <header className="w-full bg-transparent px-4 sm:px-8 pt-3 sm:pt-4 pb-1.5 sm:pb-2 flex items-center justify-between select-none relative z-20">
-        {/* Saludo a la izquierda con Nuevo Logo Oficial */}
-        <div className="flex items-center gap-3">
-          <AppLogo size={34} className="shrink-0 drop-shadow-md" />
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-            Hola, {greetingName}
-          </h1>
+    <div
+      className={`min-h-[100dvh] bg-[#f2f4f7] dark:bg-[#0c0d12] text-slate-900 dark:text-zinc-100 flex flex-col justify-between antialiased transition-[padding] duration-300 ease-out relative ${
+        isSidebarExpanded ? 'md:pl-[236px]' : 'md:pl-[72px]'
+      }`}
+    >
+      {/* Header Transparente Alineado */}
+      <header className="w-full bg-transparent px-3 sm:px-6 lg:px-8 pt-3 sm:pt-4 pb-1.5 sm:pb-2 select-none relative z-20">
+        <div className="w-full max-w-7xl 2xl:max-w-[1540px] mx-auto flex items-center justify-between">
+          {/* Header en pantallas móviles: Saludo a la izquierda, Botón de Tema celestial a la derecha */}
+          <div className="flex md:hidden items-center justify-between w-full">
+            <div className="flex items-center gap-2.5">
+              <AppLogo size={32} className="shrink-0 drop-shadow-md" />
+              <h1 className="text-base font-black tracking-tight text-slate-900 dark:text-white">
+                Hola, {greetingName}
+              </h1>
+            </div>
+
+            {/* Botón de cambio de tema móvil (Monocromático Blanco & Negro según el tema) */}
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.9 }}
+              onClick={toggleTheme}
+              className="w-10 h-10 rounded-2xl bg-white/90 dark:bg-[#151622]/90 border border-slate-200/90 dark:border-white/10 shadow-md flex items-center justify-center cursor-pointer text-zinc-950 dark:text-white"
+              title="Cambiar tema claro / oscuro"
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                {mode === 'dark' ? (
+                  <motion.div
+                    key="moon"
+                    initial={{ rotate: -90, scale: 0.5, opacity: 0 }}
+                    animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                    exit={{ rotate: 90, scale: 0.5, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Moon size={20} weight="fill" className="text-white" />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="sun"
+                    initial={{ rotate: 90, scale: 0.5, opacity: 0 }}
+                    animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                    exit={{ rotate: 90, scale: 0.5, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Sun size={20} weight="fill" className="text-zinc-950" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.button>
+          </div>
         </div>
-
-        {/* Botón Descargar App en la esquina derecha */}
-        <motion.button
-          whileHover={{ scale: 1.05, y: -1 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setIsDownloadModalOpen(true)}
-          className="btn-unified px-3.5 py-2 sm:px-4 sm:py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-black shadow-md shadow-black/10 dark:shadow-black/30 transition-all flex items-center gap-2 cursor-pointer ring-1 ring-white/20"
-          title="Descargar o instalar app en tu celular"
-        >
-          <DeviceMobile size={17} weight="bold" />
-          <span>Descargar App</span>
-        </motion.button>
       </header>
-
 
       {/* Interactive Dot Matrix Canvas Background */}
       <InteractiveBackground />
 
-      {/* Vista Principal según Módulo Activo con Centrado Óptico Vertical */}
-      <main className="flex-1 flex flex-col justify-center px-3 sm:px-6 lg:px-8 py-1 sm:py-1.5 relative z-10 overflow-y-auto min-h-0">
+      {/* Vista Principal según Módulo Activo con Centrado Óptico y Scroll Móvil Libre */}
+      <main className="flex-1 w-full flex flex-col items-center justify-start md:justify-center px-2.5 sm:px-6 lg:px-8 py-2 sm:py-3 pb-36 md:pb-6 relative z-10">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeModule}
@@ -108,11 +140,13 @@ const MainPortal: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="w-full my-auto flex flex-col justify-center"
+            className="w-full max-w-7xl 2xl:max-w-[1540px] mx-auto my-0 md:my-auto flex flex-col justify-start md:justify-center items-center"
           >
             {activeModule === 'inicio' && <InicioView />}
-            {activeModule === 'vista' && <MovementsView />}
-            {activeModule === 'estadisticas' && <StatisticsView />}
+            {activeModule === 'movimientos' && <MovementsView />}
+            {(activeModule === 'vista' || activeModule === 'estadisticas') && <StatisticsView />}
+            {activeModule === 'automatizacion' && <AutomatizacionView />}
+            {activeModule === 'categorias' && <CategoriasView />}
             {activeModule === 'ajustes' && (
               <SettingsView
                 isAdmin={isAdmin}
@@ -135,20 +169,28 @@ const MainPortal: React.FC = () => {
         </AnimatePresence>
       </main>
 
-      {/* Liquid Navigator Flotante Inferior con Avatar Central */}
-      <LiquidNavigator
+      {/* Sidebar Lateral Expandible (Fiel a Imágenes 2 y 3) */}
+      <SidebarNav
         activeModule={activeModule}
         onSelectModule={setActiveModule}
         profile={profile}
         userEmail={user.email}
         isAdmin={isAdmin}
         onLogout={logout}
+        isExpanded={isSidebarExpanded}
+        onToggleExpanded={() =>
+          setIsSidebarExpanded((prev) => {
+            const next = !prev;
+            localStorage.setItem('sidebar_expanded', String(next));
+            return next;
+          })
+        }
       />
 
       {/* Modal Flotante de Advertencia de Inactividad (60 segundos previos) */}
       <AnimatePresence>
         {inactivitySecondsLeft !== null && inactivitySecondsLeft > 0 && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm select-none">
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md select-none">
             <motion.div
               initial={{ opacity: 0, scale: 0.92, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -205,11 +247,6 @@ const MainPortal: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Modal para Descarga e Instalación de App Móvil */}
-      <DownloadAppModal
-        isOpen={isDownloadModalOpen}
-        onClose={() => setIsDownloadModalOpen(false)}
-      />
     </div>
   );
 };

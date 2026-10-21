@@ -200,6 +200,54 @@ CREATE POLICY "Eliminación de transacciones propias (DELETE)"
     USING (auth.uid() = user_id OR public.is_admin());
 
 -- ------------------------------------------------------------------------------
+-- 5. TABLA: subscriptions (Suscripciones y Pagos Fijos Mensuales / Anuales)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.subscriptions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL CHECK (char_length(name) >= 1 AND char_length(name) <= 80),
+    amount NUMERIC(14, 2) NOT NULL CHECK (amount > 0),
+    billing_cycle TEXT NOT NULL DEFAULT 'monthly' CHECK (billing_cycle IN ('monthly', 'yearly')),
+    billing_day INTEGER NOT NULL CHECK (billing_day >= 1 AND billing_day <= 31),
+    wallet_id UUID REFERENCES public.wallets_cards(id) ON DELETE SET NULL,
+    category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
+    category_name TEXT DEFAULT 'Suscripción',
+    icon_name TEXT NOT NULL DEFAULT 'FilmSlate',
+    color TEXT NOT NULL DEFAULT '#6366F1',
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused')),
+    next_billing_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL
+);
+
+-- Índices
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON public.subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_next_date ON public.subscriptions(next_billing_date);
+
+-- RLS: subscriptions
+ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Acceso a suscripciones propias (SELECT)" ON public.subscriptions;
+CREATE POLICY "Acceso a suscripciones propias (SELECT)"
+    ON public.subscriptions FOR SELECT
+    USING (auth.uid() = user_id OR public.is_admin());
+
+DROP POLICY IF EXISTS "Creación de suscripciones propias (INSERT)" ON public.subscriptions;
+CREATE POLICY "Creación de suscripciones propias (INSERT)"
+    ON public.subscriptions FOR INSERT
+    WITH CHECK (auth.uid() = user_id OR public.is_admin());
+
+DROP POLICY IF EXISTS "Actualización de suscripciones propias (UPDATE)" ON public.subscriptions;
+CREATE POLICY "Actualización de suscripciones propias (UPDATE)"
+    ON public.subscriptions FOR UPDATE
+    USING (auth.uid() = user_id OR public.is_admin());
+
+DROP POLICY IF EXISTS "Eliminación de suscripciones propias (DELETE)" ON public.subscriptions;
+CREATE POLICY "Eliminación de suscripciones propias (DELETE)"
+    ON public.subscriptions FOR DELETE
+    USING (auth.uid() = user_id OR public.is_admin());
+
+-- ------------------------------------------------------------------------------
 -- FUNCIÓN RPC: admin_delete_user (Eliminación Total y Definitiva de un Usuario)
 -- Elimina un usuario de auth.users y en cascada purga el 100% de sus tarjetas,
 -- categorías, transacciones y perfil, sin dejar ningún rastro residual en la base de datos.
@@ -218,6 +266,7 @@ BEGIN
 
   -- 2. Eliminar secuencialmente todos sus registros asociados
   DELETE FROM public.transactions WHERE user_id = target_user_id;
+  DELETE FROM public.subscriptions WHERE user_id = target_user_id;
   DELETE FROM public.wallets_cards WHERE user_id = target_user_id;
   DELETE FROM public.categories WHERE user_id = target_user_id;
   DELETE FROM public.profiles WHERE id = target_user_id;
@@ -271,8 +320,9 @@ SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 BEGIN
-  -- 1. Eliminar movimientos
+  -- 1. Eliminar movimientos y suscripciones
   DELETE FROM public.transactions WHERE user_id = OLD.id;
+  DELETE FROM public.subscriptions WHERE user_id = OLD.id;
   -- 2. Eliminar tarjetas y billeteras
   DELETE FROM public.wallets_cards WHERE user_id = OLD.id;
   -- 3. Eliminar categorías

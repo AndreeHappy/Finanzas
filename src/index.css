@@ -51,6 +51,13 @@ html.dark {
   --text-main: #f4f4f5;
   --text-muted: #94a3b8;
   --border-main: rgba(255, 255, 255, 0.08);
+  --chart-1: #0ea5e9;
+  --chart-2: #38bdf8;
+  --chart-3: #818cf8;
+  --chart-4: #a855f7;
+  --chart-5: #34d399;
+  --chart-line-primary: #34d399;
+  --chart-line-secondary: #fb7185;
 }
 
 html.light {
@@ -61,12 +68,27 @@ html.light {
   --text-main: #0f172a;
   --text-muted: #64748b;
   --border-main: rgba(0, 0, 0, 0.08);
+  --chart-1: #0284c7;
+  --chart-2: #0ea5e9;
+  --chart-3: #6366f1;
+  --chart-4: #9333ea;
+  --chart-5: #059669;
+  --chart-line-primary: #059669;
+  --chart-line-secondary: #e11d48;
+}
+
+html {
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 body {
   background-color: var(--bg-main);
   color: var(--text-main);
   transition: background-color 0.2s ease, color 0.2s ease;
+  overflow-x: hidden;
+  max-width: 100%;
+  min-height: 100dvh;
 }
 
 button, [role="button"] {

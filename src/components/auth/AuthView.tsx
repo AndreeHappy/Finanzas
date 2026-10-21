@@ -17,7 +17,18 @@ import {
   PaperPlaneRight,
 } from '@phosphor-icons/react';
 import { useAuth } from '../../context/AuthContext';
-import { isValidEmail, validatePassword, sanitizeTextInput } from '../../utils/security';
+import {
+  isValidEmail,
+  validatePassword,
+  sanitizeTextInput,
+  normalizeEmail,
+  isDisposableEmail,
+  hasSqlInjectionPattern,
+  verifyDeviceRegistrationPolicy,
+  markDeviceRegistered,
+  bindDeviceToAccount,
+  checkClientRateLimit,
+} from '../../utils/security';
 import { AppLogo } from '../common/AppLogo';
 
 type AuthMode = 'login' | 'register' | 'forgot_password';
@@ -132,11 +143,26 @@ export const AuthView: React.FC = () => {
   }, [lockoutSecondsLeft]);
 
 
-  // Asegurar tema blanco en la pantalla de autenticación
+  // Asegurar tema blanco en la pantalla de autenticación pero restaurar el tema configurado al ingresar
   useEffect(() => {
     const root = document.documentElement;
     root.classList.remove('dark');
     root.classList.add('light');
+
+    return () => {
+      try {
+        const savedMode = localStorage.getItem('app_finanzas_theme_mode_v1');
+        if (savedMode === 'dark') {
+          root.classList.remove('light');
+          root.classList.add('dark');
+        } else {
+          root.classList.remove('dark');
+          root.classList.add('light');
+        }
+      } catch (e) {
+        console.error('Error restaurando tema:', e);
+      }
+    };
   }, []);
 
 
@@ -201,10 +227,33 @@ export const AuthView: React.FC = () => {
       return;
     }
 
+    // 3. Rate Limit y Prevención de Saturación / DDoS
+    const rateCheck = checkClientRateLimit(mode, 8, 60000);
+    if (!rateCheck.allowed) {
+      setErrorDetails({
+        title: 'Demasiadas solicitudes consecutivas.',
+        hint: `Por seguridad ante saturación, por favor espera ${rateCheck.waitSeconds} segundos antes de continuar.`,
+      });
+      return;
+    }
+
     const cleanEmail = sanitizeTextInput(email).toLowerCase();
     const cleanPassword = password.trim();
 
-    // 3. Validación de Formato de Correo Electrónico
+    // 4. Blindaje contra Inyección SQL (SQL Injection Protection)
+    if (
+      hasSqlInjectionPattern(cleanEmail) ||
+      hasSqlInjectionPattern(cleanPassword) ||
+      (mode === 'register' && hasSqlInjectionPattern(fullName))
+    ) {
+      setErrorDetails({
+        title: 'Intento de entrada maliciosa bloqueado.',
+        hint: 'Se detectaron caracteres o secuencias de inyección SQL (SQLi). Por motivos de seguridad, la solicitud ha sido anulada.',
+      });
+      return;
+    }
+
+    // 5. Validación de Formato de Correo Electrónico
     if (cleanEmail && !isValidEmail(cleanEmail)) {
       setErrorDetails({
         title: 'Formato de correo electrónico inválido.',
@@ -213,9 +262,21 @@ export const AuthView: React.FC = () => {
       return;
     }
 
-    if (cleanEmail) {
+    // 6. Bloqueo de Correos Temporales / Desechables Anti-Spam
+    if (cleanEmail && isDisposableEmail(cleanEmail)) {
+      setErrorDetails({
+        title: 'Proveedor de correo temporal no admitido.',
+        hint: 'Por seguridad contra cuentas falsas y spam, no se permiten correos desechables. Usa tu Gmail o correo seguro.',
+      });
+      return;
+    }
+
+    // 7. Normalización de correo (anti-truco de puntos y alias en Gmail)
+    const normalizedEmail = normalizeEmail(cleanEmail);
+
+    if (normalizedEmail) {
       try {
-        localStorage.setItem('finanzas_remembered_email', cleanEmail);
+        localStorage.setItem('finanzas_remembered_email', normalizedEmail);
       } catch {
         // Ignorar
       }
@@ -243,28 +304,28 @@ export const AuthView: React.FC = () => {
       }
 
       if (mode === 'forgot_password') {
-        if (!cleanEmail) {
+        if (!normalizedEmail) {
           setErrorDetails({ title: 'Ingresa tu correo para enviarte el enlace de recuperación.' });
           setIsLoading(false);
           return;
         }
-        const res = await resetPasswordForEmail(cleanEmail);
+        const res = await resetPasswordForEmail(normalizedEmail);
         if (res.error) {
           setErrorDetails(translateSupabaseError(res.error));
         } else {
-          setSuccessMsg(`Te hemos enviado un correo a ${cleanEmail} con las instrucciones para restablecer tu contraseña.`);
+          setSuccessMsg(`Te hemos enviado un correo a ${normalizedEmail} con las instrucciones para restablecer tu contraseña.`);
         }
         setIsLoading(false);
         return;
       }
 
       if (mode === 'login') {
-        if (!cleanEmail || !cleanPassword) {
+        if (!normalizedEmail || !cleanPassword) {
           setErrorDetails({ title: 'Por favor ingresa tu correo y contraseña.' });
           setIsLoading(false);
           return;
         }
-        const res = await login(cleanEmail, cleanPassword);
+        const res = await login(normalizedEmail, cleanPassword);
         if (res.error) {
           // Contabilizar intento fallido para protección contra fuerza bruta
           const currentFails = parseInt(sessionStorage.getItem(FAILED_ATTEMPTS_KEY) || '0', 10) + 1;
@@ -282,21 +343,34 @@ export const AuthView: React.FC = () => {
             setErrorDetails(translateSupabaseError(res.error));
           }
         } else {
-          // Éxito: Limpiar contadores de intentos fallidos
+          // Éxito: Limpiar contadores de intentos fallidos y vincular dispositivo
           sessionStorage.removeItem(FAILED_ATTEMPTS_KEY);
           sessionStorage.removeItem(LOCKOUT_KEY);
           setLockoutSecondsLeft(null);
+          bindDeviceToAccount(normalizedEmail);
         }
         setIsLoading(false);
         return;
       }
 
       if (mode === 'register') {
-        if (!cleanEmail || !cleanPassword) {
+        if (!normalizedEmail || !cleanPassword) {
           setErrorDetails({ title: 'Por favor completa todos los campos requeridos.' });
           setIsLoading(false);
           return;
         }
+
+        // 8. Política Estricta: "Una cuenta por celular / dispositivo"
+        const devicePolicy = verifyDeviceRegistrationPolicy(normalizedEmail);
+        if (!devicePolicy.allowed) {
+          setErrorDetails({
+            title: 'Dispositivo ya vinculado o límite alcanzado.',
+            hint: devicePolicy.reason,
+          });
+          setIsLoading(false);
+          return;
+        }
+
         const passVal = validatePassword(cleanPassword);
         if (!passVal.isValid) {
           setErrorDetails({ title: passVal.error || 'La contraseña no cumple los requisitos mínimos.' });
@@ -305,16 +379,18 @@ export const AuthView: React.FC = () => {
         }
 
         const sanitizedFullName = sanitizeTextInput(fullName, 100);
-        const res = await register(cleanEmail, cleanPassword, sanitizedFullName);
+        const res = await register(normalizedEmail, cleanPassword, sanitizedFullName);
         if (res.error) {
           setErrorDetails(translateSupabaseError(res.error));
         } else if (res.requiresEmailConfirmation) {
+          markDeviceRegistered(normalizedEmail);
           setSuccessMsg(
-            `¡Cuenta registrada! Hemos enviado un enlace de confirmación a ${cleanEmail}. Por favor revisa tu correo y haz clic en el enlace para iniciar sesión.`
+            `¡Cuenta registrada! Hemos enviado un enlace de confirmación a ${normalizedEmail}. Por favor revisa tu correo y haz clic en el enlace para iniciar sesión.`
           );
           setMode('login');
           setPassword('');
         } else {
+          markDeviceRegistered(normalizedEmail);
           setSuccessMsg('¡Cuenta registrada con éxito! Ya puedes iniciar sesión.');
           setMode('login');
           setPassword('');

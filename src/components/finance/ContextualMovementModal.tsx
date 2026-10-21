@@ -10,11 +10,10 @@ import {
   WarningCircle,
   CreditCard,
   Money,
-  CaretDown,
-  Check,
 } from '@phosphor-icons/react';
 import { CurrencyInput } from '../ui/CurrencyInput';
 import { CustomDatePicker } from '../common/CustomDatePicker';
+import { CustomSelect, type SelectOption } from '../common/CustomSelect';
 import { getCategoryIcon } from '../../constants/iconMap';
 import type { WalletCard, Category, MovementType } from '../../types';
 
@@ -58,9 +57,26 @@ export const ContextualMovementModal: React.FC<Props> = ({
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [transferDestinationId, setTransferDestinationId] = useState<string>('');
   const [transferSourceId, setTransferSourceId] = useState<string>('');
-  const [isWalletSelectOpen, setIsWalletSelectOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const walletOptions = React.useMemo<SelectOption[]>(() => {
+    return wallets.map((w) => ({
+      value: w.id,
+      label: w.name,
+      badge: w.type === 'savings' ? 'Ahorro' : w.type === 'cash' ? 'Efectivo' : 'Digital',
+      badgeColor: w.type === 'savings' ? '#f59e0b' : w.type === 'cash' ? '#10b981' : '#3b82f6',
+      badgeOnly: true,
+      icon:
+        w.type === 'savings' ? (
+          <PiggyBank size={15} weight="bold" />
+        ) : w.type === 'cash' ? (
+          <Money size={15} weight="bold" />
+        ) : (
+          <CreditCard size={15} weight="bold" />
+        ),
+    }));
+  }, [wallets]);
 
   // Cuentas de gasto disponibles (digital y efectivo) para financiar o recibir ahorros
   const spendingWallets = wallets.filter((w) => w.type !== 'savings');
@@ -261,121 +277,25 @@ export const ContextualMovementModal: React.FC<Props> = ({
               </div>
             )}
 
-            {/* Selector de Cuenta Personalizado sin Emojis */}
-            <div className="relative">
+            {/* Selector de Cuenta Personalizado sin Recortes */}
+            <div>
               <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-                CUENTA SELECCIONADA
+                TARJETA / CUENTA
               </label>
-              
-              <button
-                type="button"
-                onClick={() => setIsWalletSelectOpen((prev) => !prev)}
-                className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-white/[0.04] hover:bg-slate-100 dark:hover:bg-white/[0.07] transition-all flex items-center justify-between text-left"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className={`w-8 h-8 rounded-xl flex items-center justify-center text-white shrink-0 ${
-                      currentWallet?.type === 'cash'
-                        ? 'bg-emerald-600'
-                        : currentWallet?.type === 'savings'
-                        ? 'bg-amber-600'
-                        : 'bg-indigo-600'
-                    }`}
-                  >
-                    {currentWallet?.type === 'cash' ? (
-                      <Money size={18} weight="bold" />
-                    ) : currentWallet?.type === 'savings' ? (
-                      <PiggyBank size={18} weight="bold" />
-                    ) : (
-                      <CreditCard size={18} weight="bold" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-xs font-black text-slate-900 dark:text-white block truncate">
-                      {currentWallet?.name || 'Seleccionar cuenta'}
-                    </span>
-                    <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                      Saldo: S/. {(currentWallet?.balance || 0).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-
-                <CaretDown
-                  size={16}
-                  className={`text-slate-400 transition-transform ${
-                    isWalletSelectOpen ? 'rotate-180 text-emerald-600' : ''
-                  }`}
-                />
-              </button>
-
-              {/* Menú Desplegable Estilizado */}
-              <AnimatePresence>
-                {isWalletSelectOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 4, scale: 1 }}
-                    exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute top-full inset-x-0 mt-1 z-30 bg-white dark:bg-[#151622] border border-slate-200 dark:border-white/[0.12] rounded-2xl shadow-2xl p-1.5 space-y-1"
-                  >
-                    {wallets.map((w) => {
-                      const isSel = w.id === targetWalletId;
-                      return (
-                        <button
-                          key={w.id}
-                          type="button"
-                          onClick={() => {
-                            setTargetWalletId(w.id);
-                            setIsWalletSelectOpen(false);
-                            if (w.type === 'savings') {
-                              setMovementType('savings_deposit');
-                            } else {
-                              setMovementType('income');
-                            }
-                          }}
-                          className={`w-full p-2.5 rounded-xl transition-all flex items-center justify-between text-left ${
-                            isSel
-                              ? 'bg-slate-100 dark:bg-white/[0.08] ring-1 ring-emerald-500'
-                              : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div
-                              className={`w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0 ${
-                                w.type === 'cash'
-                                  ? 'bg-emerald-600'
-                                  : w.type === 'savings'
-                                  ? 'bg-amber-600'
-                                  : 'bg-indigo-600'
-                              }`}
-                            >
-                              {w.type === 'cash' ? (
-                                <Money size={15} weight="bold" />
-                              ) : w.type === 'savings' ? (
-                                <PiggyBank size={15} weight="bold" />
-                              ) : (
-                                <CreditCard size={15} weight="bold" />
-                              )}
-                            </div>
-                            <div className="min-w-0">
-                              <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
-                                {w.name}
-                              </span>
-                              <span className="text-[10px] font-mono text-slate-500">
-                                Saldo: S/. {(w.balance || 0).toFixed(2)}
-                              </span>
-                            </div>
-                          </div>
-
-                          {isSel && (
-                            <Check size={16} weight="bold" className="text-emerald-600 shrink-0" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              <CustomSelect
+                value={targetWalletId}
+                onChange={(val) => {
+                  setTargetWalletId(val);
+                  const chosen = wallets.find((w) => w.id === val);
+                  if (chosen?.type === 'savings') {
+                    setMovementType('savings_deposit');
+                  } else {
+                    setMovementType('income');
+                  }
+                }}
+                options={walletOptions}
+                placeholder="Selecciona una cuenta"
+              />
             </div>
 
             {/* Tipo de movimiento: INGRESO PRIMERO, GASTO DESPUÉS */}

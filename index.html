@@ -14,6 +14,22 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
 
+    <script>
+      (function() {
+        try {
+          var mode = localStorage.getItem('app_finanzas_theme_mode_v1');
+          var root = document.documentElement;
+          if (mode === 'dark') {
+            root.classList.remove('light');
+            root.classList.add('dark');
+          } else {
+            root.classList.remove('dark');
+            root.classList.add('light');
+          }
+        } catch (e) {}
+      })();
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">

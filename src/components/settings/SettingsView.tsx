@@ -2,11 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkle,
-  Sun,
-  Moon,
   User,
   SignOut,
-  Tag,
   Check,
   FloppyDisk,
   ShieldCheck,
@@ -28,12 +25,11 @@ import {
   CaretUp,
   Phone,
   Database,
+  DeviceMobile,
   type IconProps,
 } from '@phosphor-icons/react';
-import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { useFinance } from '../../context/FinanceContext';
-import { CategoriesManagerModal } from './CategoriesManagerModal';
+import { DownloadAppModal } from '../common/DownloadAppModal';
 
 const AVATAR_OPTIONS: { id: string; label: string; Icon: React.ComponentType<IconProps> }[] = [
   { id: 'User', label: 'Persona', Icon: User },
@@ -133,10 +129,8 @@ interface SettingsViewProps {
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateAdmin }) => {
-  const { mode, setMode } = useTheme();
   const { user, profile, updateProfile, signOut } = useAuth();
-  const { categories } = useFinance();
-
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   // Estados completos de perfil de usuario
   const [firstName, setFirstName] = useState(profile?.first_name || '');
   const [lastName, setLastName] = useState(profile?.last_name || '');
@@ -150,7 +144,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
 
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
-  const [isCategoriesModalOpen, setIsCategoriesModalOpen] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [isCountryOpen, setIsCountryOpen] = useState(false);
   const [isCityOpen, setIsCityOpen] = useState(false);
@@ -270,134 +263,46 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
   );
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-6 pb-28">
-      {/* Encabezado */}
-      <div className="pb-1">
-        <span className="text-xs font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 block">
-          CONFIGURACIÓN GLOBAL
-        </span>
-        <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-          Ajustes & Personalización
-        </h2>
-      </div>
+    <div className="w-full max-w-5xl mx-auto space-y-6 pb-28 select-none">
+      {/* Encabezado Principal */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200/80 dark:border-white/[0.08]">
+        <div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 block">
+            PREFERENCIAS DE CUENTA
+          </span>
+          <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+            Ajustes & Personalización
+          </h2>
+        </div>
 
-      {/* Grid de Configuración */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-        {/* TARJETA 1: TEMA DE INTERFAZ */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          whileHover={{ y: -2 }}
-          transition={{ duration: 0.2 }}
-          className="glass-panel rounded-3xl p-6 shadow-xl shadow-slate-900/[0.05] dark:shadow-black/40 space-y-4"
-        >
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-white border border-slate-200 dark:border-zinc-700 flex items-center justify-center shrink-0">
-              <Sparkle size={22} weight="bold" />
-            </div>
-            <div>
-              <h3 className="text-base font-black text-slate-900 dark:text-white">
-                Tema de Interfaz
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Diseño claro con alta legibilidad y modo oscuro con contraste unificado.
-              </p>
-            </div>
-          </div>
-
-          <div className="pt-2">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-2">
-              MODALIDAD DE COLOR
+        <div className="flex items-center gap-2">
+          <div className="px-3.5 py-1.5 rounded-2xl bg-slate-100 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/10 text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-mono text-[11px] truncate max-w-[200px]">
+              {user?.email || 'Cuenta Activa'}
             </span>
-            <div className="grid grid-cols-2 gap-3">
-              {/* Opción Claro */}
-              <button
-                type="button"
-                onClick={() => setMode('light')}
-                className={`py-3 px-4 rounded-2xl border text-xs font-black transition-all flex items-center justify-center gap-2 ${
-                  mode === 'light'
-                    ? 'btn-unified bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border-zinc-950 dark:border-white shadow-md'
-                    : 'bg-white/50 dark:bg-white/[0.04] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:border-slate-300'
-                }`}
-              >
-                <Sun size={16} weight="bold" />
-                Claro
-              </button>
-
-              {/* Opción Oscuro */}
-              <button
-                type="button"
-                onClick={() => setMode('dark')}
-                className={`py-3 px-4 rounded-2xl border text-xs font-black transition-all flex items-center justify-center gap-2 ${
-                  mode === 'dark'
-                    ? 'btn-unified bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border-zinc-950 dark:border-white shadow-md'
-                    : 'bg-white/50 dark:bg-white/[0.04] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:border-slate-300'
-                }`}
-              >
-                <Moon size={16} weight="bold" />
-                Oscuro
-              </button>
-            </div>
           </div>
-        </motion.div>
-
-        {/* TARJETA 2: CATEGORÍAS */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          whileHover={{ y: -2 }}
-          transition={{ delay: 0.05, duration: 0.2 }}
-          className="glass-panel rounded-3xl p-6 shadow-xl shadow-slate-900/[0.05] dark:shadow-black/40 space-y-4 flex flex-col justify-between"
-        >
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-white border border-slate-200 dark:border-zinc-700 flex items-center justify-center shrink-0">
-              <Tag size={22} weight="bold" />
-            </div>
-            <div>
-              <h3 className="text-base font-black text-slate-900 dark:text-white">
-                Categorías de Gastos e Ingresos
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Personaliza tus categorías con iconos SVG únicos para que no se confundan.
-              </p>
-            </div>
-          </div>
-
-          <div className="pt-2">
-            <p className="text-xs text-slate-600 dark:text-slate-400 font-medium mb-3">
-              Actualmente tienes <strong>{categories.length} categorías</strong> activas en tu cuenta.
-            </p>
-
-            <button
-              onClick={() => setIsCategoriesModalOpen(true)}
-              className="btn-unified w-full py-3 px-4 rounded-2xl bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-black transition-all flex items-center justify-center gap-2 shadow-md shadow-black/10 dark:shadow-black/30"
-            >
-              <Tag size={16} weight="bold" />
-              Administrar y Agregar Categorías
-            </button>
-          </div>
-        </motion.div>
+        </div>
       </div>
 
-      {/* TARJETA 3: PERFIL DE USUARIO COMPLETO (relative z-30 para evitar que TARJETA 4 tape los dropdowns) */}
+      {/* TARJETA 1: PERFIL DE USUARIO COMPLETO (relative z-30 para evitar que TARJETA 2 tape los dropdowns) */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        whileHover={{ y: -2 }}
-        transition={{ delay: 0.1, duration: 0.2 }}
-        className="relative z-30 glass-panel rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-900/[0.05] dark:shadow-black/40 space-y-6"
+        transition={{ duration: 0.2 }}
+        className="relative z-30 glass-panel rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-900/[0.04] dark:shadow-black/50 border border-slate-200/80 dark:border-white/10 space-y-7"
       >
         <div className="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-white/[0.08]">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-white border border-slate-200 dark:border-zinc-700 flex items-center justify-center font-bold">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center font-bold shadow-md shadow-black/10 dark:shadow-black/30">
               {React.createElement(
                 AVATAR_OPTIONS.find((a) => a.id === avatarUrl)?.Icon || User,
                 { size: 26, weight: 'bold' }
               )}
             </div>
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 block">
-                PERFIL DE USUARIO
+              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 block">
+                IDENTIDAD Y DATOS
               </span>
               <h3 className="text-lg font-black text-slate-900 dark:text-white">
                 Personalización Integral de Cuenta
@@ -406,22 +311,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
           </div>
 
           {profileSuccess && (
-            <span className="px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold flex items-center gap-1">
-              <Check size={14} weight="bold" /> ¡Guardado!
-            </span>
+            <motion.span
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="px-3.5 py-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs font-black flex items-center gap-1.5 shadow-sm"
+            >
+              <Check size={14} weight="bold" /> ¡Cambios Guardados!
+            </motion.span>
           )}
         </div>
 
-        <form onSubmit={handleSaveProfile} className="space-y-5">
+        <form onSubmit={handleSaveProfile} className="space-y-6">
           {/* Subida de Foto de Perfil & Avatar */}
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] space-y-4">
-            <div className="flex items-center justify-between">
+          <div className="p-5 rounded-3xl bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  FOTO DE PERFIL / AVATAR DE USUARIO
+                <label className="block text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                  Foto de Perfil & Avatar
                 </label>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Sube tu propia foto personalizada desde tu dispositivo o elige un icono
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Sube una foto personalizada (JPG, PNG, WebP máx. 5MB) o selecciona un avatar predeterminado.
                 </p>
               </div>
 
@@ -435,10 +344,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-5">
+            <div className="flex flex-col sm:flex-row items-center gap-6">
               {/* Previsualización del Avatar */}
               <div className="relative group shrink-0">
-                <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-white dark:border-[#1c1d28] shadow-lg bg-zinc-950 dark:bg-zinc-800 flex items-center justify-center text-white">
+                <div className="w-22 h-22 rounded-full overflow-hidden border-4 border-white dark:border-[#1c1d28] shadow-xl bg-zinc-950 dark:bg-zinc-800 flex items-center justify-center text-white ring-2 ring-slate-200 dark:ring-white/10">
                   {avatarUrl.startsWith('data:image/') || avatarUrl.startsWith('http') ? (
                     <img
                       src={avatarUrl}
@@ -448,7 +357,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
                   ) : (
                     (() => {
                       const IconComp = AVATAR_OPTIONS.find((a) => a.id === avatarUrl)?.Icon || User;
-                      return <IconComp size={36} weight="bold" className="text-white drop-shadow-sm" />;
+                      return <IconComp size={42} weight="bold" className="text-white drop-shadow-sm" />;
                     })()
                   )}
                 </div>
@@ -457,42 +366,48 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   title="Cambiar foto de perfil"
-                  className="absolute bottom-0 right-0 p-2 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 shadow-md hover:scale-110 active:scale-95 transition-all"
+                  className="absolute bottom-0 right-0 p-2.5 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 shadow-md hover:scale-110 active:scale-95 transition-all cursor-pointer"
                 >
-                  <Camera size={14} weight="bold" />
+                  <Camera size={15} weight="bold" />
                 </button>
               </div>
 
-              {/* Acciones de Foto */}
-              <div className="flex flex-wrap items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="btn-unified px-4 py-2.5 rounded-2xl bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-black transition-all flex items-center gap-2 shadow-md shadow-black/10 dark:shadow-black/30"
-                >
-                  <UploadSimple size={16} weight="bold" />
-                  <span>Subir Foto de Perfil</span>
-                </button>
-
-                {(avatarUrl.startsWith('data:image/') || avatarUrl.startsWith('http')) && (
+              {/* Acciones de Foto & Vista Previa Compacta */}
+              <div className="space-y-3 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2.5">
                   <button
                     type="button"
-                    onClick={() => setAvatarUrl('User')}
-                    className="px-3.5 py-2 rounded-xl border border-rose-200 dark:border-rose-500/20 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 text-xs font-bold transition-all flex items-center gap-1.5"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="btn-unified px-4 py-2.5 rounded-2xl bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-black transition-all flex items-center gap-2 shadow-md shadow-black/10 dark:shadow-black/30 cursor-pointer"
                   >
-                    <Trash size={15} />
-                    <span>Quitar foto</span>
+                    <UploadSimple size={16} weight="bold" />
+                    <span>Subir Foto de Perfil</span>
                   </button>
-                )}
+
+                  {(avatarUrl.startsWith('data:image/') || avatarUrl.startsWith('http')) && (
+                    <button
+                      type="button"
+                      onClick={() => setAvatarUrl('User')}
+                      className="px-3.5 py-2.5 rounded-2xl border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Trash size={15} weight="bold" />
+                      <span>Quitar foto</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="text-[11px] text-slate-500 font-mono">
+                  Se mostrará como: <strong className="text-slate-800 dark:text-white">{nickname ? `@${nickname}` : firstName || 'Usuario'}</strong>
+                </div>
               </div>
             </div>
 
             {/* Alternativa: Selector de Iconos Predeterminados */}
-            <div className="pt-2 border-t border-slate-200/80 dark:border-white/[0.06]">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                O ELIGE UN ICONO PREDETERMINADO:
+            <div className="pt-3 border-t border-slate-200/80 dark:border-white/[0.06]">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-2.5">
+                O ELIGE UN ICONO DE PERFIL PREDETERMINADO:
               </span>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2.5">
                 {AVATAR_OPTIONS.map((a) => {
                   const { Icon } = a;
                   const isSel = avatarUrl === a.id;
@@ -502,13 +417,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
                       type="button"
                       onClick={() => setAvatarUrl(a.id)}
                       title={a.label}
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                      className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
                         isSel
-                          ? 'bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-md scale-105 ring-2 ring-zinc-900 dark:ring-white ring-offset-2 dark:ring-offset-[#13141c]'
+                          ? 'bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-md scale-105 ring-2 ring-zinc-950 dark:ring-white ring-offset-2 dark:ring-offset-[#13141c]'
                           : 'bg-white dark:bg-white/[0.04] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/[0.08] hover:bg-slate-100 dark:hover:bg-white/[0.08]'
                       }`}
                     >
-                      <Icon size={18} weight={isSel ? 'bold' : 'regular'} />
+                      <Icon size={19} weight={isSel ? 'bold' : 'regular'} />
                     </button>
                   );
                 })}
@@ -516,11 +431,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
             </div>
           </div>
 
+          {/* Formulario de Campos Agrupados */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Nombres */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                NOMBRES
+            <div className="space-y-1">
+              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500">
+                Nombres
               </label>
               <input
                 type="text"
@@ -528,14 +444,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 maxLength={40}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-white/[0.04] text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.04] text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white transition-all"
               />
             </div>
 
             {/* Apellidos */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                APELLIDOS
+            <div className="space-y-1">
+              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500">
+                Apellidos
               </label>
               <input
                 type="text"
@@ -543,42 +459,45 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 maxLength={40}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-white/[0.04] text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.04] text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white transition-all"
               />
             </div>
 
             {/* Nombre de Usuario / Nickname */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                NOMBRE DE USUARIO (NICKNAME)
+            <div className="space-y-1">
+              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500">
+                Nombre de Usuario (Nickname)
               </label>
-              <input
-                type="text"
-                placeholder="Ej. juanperez"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                maxLength={30}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-white/[0.04] text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
-              />
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">@</span>
+                <input
+                  type="text"
+                  placeholder="juanperez"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  maxLength={30}
+                  className="w-full pl-8 pr-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.04] text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white transition-all font-mono"
+                />
+              </div>
             </div>
 
             {/* Correo (Solo Lectura) */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 mb-1 flex items-center gap-1">
-                <Lock size={12} /> CORREO ELECTRÓNICO (NO MODIFICABLE)
+            <div className="space-y-1">
+              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                <Lock size={12} weight="bold" /> Correo Electrónico
               </label>
               <input
                 type="email"
                 value={user?.email || 'usuario@ejemplo.com'}
                 disabled
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-100 dark:bg-white/[0.02] text-xs font-mono text-slate-500 cursor-not-allowed"
+                className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-slate-100 dark:bg-white/[0.02] text-xs font-mono text-slate-500 cursor-not-allowed select-none"
               />
             </div>
 
             {/* Edad */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                EDAD
+            <div className="space-y-1">
+              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500">
+                Edad (Años)
               </label>
               <input
                 type="number"
@@ -587,44 +506,44 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
                 onChange={(e) => setAge(e.target.value)}
                 min={1}
                 max={120}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-white/[0.04] text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-mono"
+                className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.04] text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white transition-all font-mono"
               />
             </div>
 
             {/* Profesión / Ocupación */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                PROFESIÓN / OCUPACIÓN
+            <div className="space-y-1">
+              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500">
+                Profesión / Ocupación
               </label>
               <input
                 type="text"
-                placeholder="Ej. Desarrollador de Software"
+                placeholder="Ej. Desarrollador / Contador"
                 value={occupation}
                 onChange={(e) => setOccupation(e.target.value)}
                 maxLength={50}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-white/[0.04] text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.04] text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white transition-all"
               />
             </div>
 
             {/* Número Telefónico */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 mb-1 flex items-center gap-1">
-                <Phone size={13} /> NÚMERO TELEFÓNICO
+            <div className="space-y-1">
+              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                <Phone size={13} weight="bold" /> Número Telefónico
               </label>
               <input
                 type="tel"
-                placeholder="Ej. +51 987 654 321"
+                placeholder="+51 987 654 321"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 maxLength={25}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-white/[0.04] text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-mono"
+                className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.04] text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white transition-all font-mono"
               />
             </div>
 
             {/* País (Custom Styled Dropdown con z-50) */}
-            <div ref={countryRef} className="relative">
-              <label className="block text-[11px] font-bold text-slate-500 mb-1 flex items-center gap-1">
-                <GlobeHemisphereWest size={13} /> PAÍS
+            <div ref={countryRef} className="space-y-1 relative">
+              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                <GlobeHemisphereWest size={13} weight="bold" /> País de Residencia
               </label>
               <button
                 type="button"
@@ -632,7 +551,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
                   setIsCountryOpen((prev) => !prev);
                   setIsCityOpen(false);
                 }}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-white/[0.04] text-xs font-bold text-slate-900 dark:text-white flex items-center justify-between transition-all focus:outline-none focus:border-zinc-950 dark:focus:border-white"
+                className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.04] text-xs font-bold text-slate-900 dark:text-white flex items-center justify-between transition-all focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white cursor-pointer"
               >
                 <div className="flex items-center gap-2">
                   <GlobeHemisphereWest size={15} className="text-zinc-950 dark:text-white" />
@@ -669,7 +588,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
                             setIsCountryOpen(false);
                             setCitySearch('');
                           }}
-                          className={`w-full px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between text-left ${
+                          className={`w-full px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between text-left cursor-pointer ${
                             isSelected
                               ? 'btn-unified bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
                               : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06]'
@@ -685,10 +604,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
               </AnimatePresence>
             </div>
 
-            {/* Ciudad / Departamento (Custom Styled Dropdown con búsqueda y los 25 departamentos de Perú) */}
-            <div ref={cityRef} className="relative">
-              <label className="block text-[11px] font-bold text-slate-500 mb-1 flex items-center gap-1">
-                <Buildings size={13} /> {country === 'Perú' ? 'DEPARTAMENTO / REGIÓN' : 'CIUDAD / LOCALIDAD'}
+            {/* Ciudad / Departamento */}
+            <div ref={cityRef} className="space-y-1 relative">
+              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                <Buildings size={13} weight="bold" /> {country === 'Perú' ? 'Departamento / Región' : 'Ciudad / Localidad'}
               </label>
               <button
                 type="button"
@@ -697,7 +616,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
                   setIsCountryOpen(false);
                   setCitySearch('');
                 }}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-white/[0.04] text-xs font-bold text-slate-900 dark:text-white flex items-center justify-between transition-all focus:outline-none focus:border-zinc-950 dark:focus:border-white"
+                className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.04] text-xs font-bold text-slate-900 dark:text-white flex items-center justify-between transition-all focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white cursor-pointer"
               >
                 <div className="flex items-center gap-2 truncate">
                   <Buildings size={15} className="text-zinc-950 dark:text-white shrink-0" />
@@ -740,7 +659,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
                               setCity(ct);
                               setIsCityOpen(false);
                             }}
-                            className={`w-full px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between text-left ${
+                            className={`w-full px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between text-left cursor-pointer ${
                               isSelected
                                 ? 'btn-unified bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
                                 : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06]'
@@ -760,7 +679,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
                             setCity(citySearch.trim());
                             setIsCityOpen(false);
                           }}
-                          className="w-full px-3 py-2 rounded-xl text-xs font-bold text-zinc-950 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition-all flex items-center gap-1.5 text-left"
+                          className="w-full px-3 py-2 rounded-xl text-xs font-bold text-zinc-950 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition-all flex items-center gap-1.5 text-left cursor-pointer"
                         >
                           <span>Usar "{citySearch.trim()}"</span>
                         </button>
@@ -772,11 +691,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
             </div>
           </div>
 
-          <div className="flex items-center justify-end pt-3 border-t border-slate-100 dark:border-white/[0.08]">
+          <div className="flex items-center justify-end pt-4 border-t border-slate-100 dark:border-white/[0.08]">
             <button
               type="submit"
               disabled={isSavingProfile}
-              className="btn-unified py-3 px-6 rounded-2xl bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-black/10 dark:shadow-black/30 disabled:opacity-50"
+              className="btn-unified py-3 px-6 rounded-2xl bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-black/10 dark:shadow-black/30 disabled:opacity-50 cursor-pointer"
             >
               <FloppyDisk size={16} weight="bold" />
               {isSavingProfile ? 'Guardando Perfil...' : 'Guardar Cambios de Perfil'}
@@ -785,17 +704,50 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
         </form>
       </motion.div>
 
-      {/* TARJETA ADMINISTRACIÓN DE BASE DE DATOS (SOLO ADMINISTRADOR) */}
+      {/* TARJETA 2: DESCARGAR E INSTALAR APP */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1, duration: 0.2 }}
+        className="relative z-10 glass-panel rounded-3xl p-6 shadow-xl shadow-slate-900/[0.04] dark:shadow-black/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-slate-200/80 dark:border-white/10"
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0 shadow-md">
+            <DeviceMobile size={26} weight="bold" />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+              Descargar e Instalar Aplicación Móvil
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                PWA / Android / iOS
+              </span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Instala la aplicación directamente en la pantalla de inicio de tu smartphone o descarga el paquete APK.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsDownloadModalOpen(true)}
+          className="btn-unified py-2.5 px-5 rounded-2xl bg-zinc-950 hover:bg-zinc-800 text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-zinc-950 text-xs font-black transition-all flex items-center gap-2 shadow-md shrink-0 cursor-pointer"
+        >
+          <DeviceMobile size={16} weight="bold" />
+          <span>Descargar App</span>
+        </button>
+      </motion.div>
+
+      {/* TARJETA 3: ADMINISTRACIÓN DE BASE DE DATOS (SOLO ADMINISTRADOR) */}
       {isAdmin && onNavigateAdmin && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          whileHover={{ y: -2 }}
           transition={{ delay: 0.12, duration: 0.2 }}
-          className="relative z-10 glass-panel rounded-3xl p-6 shadow-xl shadow-slate-900/[0.05] dark:shadow-black/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-slate-200 dark:border-zinc-800"
+          className="relative z-10 glass-panel rounded-3xl p-6 shadow-xl shadow-slate-900/[0.04] dark:shadow-black/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-slate-200/80 dark:border-white/10"
         >
           <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-white border border-slate-200 dark:border-zinc-700 flex items-center justify-center shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-white border border-slate-200 dark:border-zinc-700 flex items-center justify-center shrink-0">
               <Database size={24} weight="bold" />
             </div>
             <div>
@@ -814,24 +766,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
           <button
             type="button"
             onClick={onNavigateAdmin}
-            className="btn-unified py-2.5 px-5 rounded-2xl bg-zinc-950 hover:bg-zinc-800 text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-zinc-950 text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-black/10 dark:shadow-black/30 shrink-0"
+            className="btn-unified py-2.5 px-5 rounded-2xl bg-zinc-950 hover:bg-zinc-800 text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-zinc-950 text-xs font-black transition-all flex items-center gap-2 shadow-md shrink-0 cursor-pointer"
           >
             <Database size={16} weight="bold" />
-            Abrir Panel de Base de Datos
+            <span>Abrir Panel BD</span>
           </button>
         </motion.div>
       )}
 
-      {/* TARJETA 4: SESIÓN ACTIVA (relative z-10 para no sobreponerse a los menús desplegables de Tarjeta 3) */}
+      {/* TARJETA 4: SESIÓN ACTIVA */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        whileHover={{ y: -2 }}
         transition={{ delay: 0.15, duration: 0.2 }}
-        className="relative z-10 glass-panel rounded-3xl p-6 shadow-xl shadow-slate-900/[0.05] dark:shadow-black/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+        className="relative z-10 glass-panel rounded-3xl p-6 shadow-xl shadow-slate-900/[0.04] dark:shadow-black/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-slate-200/80 dark:border-white/10"
       >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-white border border-slate-200 dark:border-zinc-700 flex items-center justify-center shrink-0">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-white border border-slate-200 dark:border-zinc-700 flex items-center justify-center shrink-0">
             <Code size={22} weight="bold" />
           </div>
           <div>
@@ -848,13 +799,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
           <div className="flex items-center gap-2">
             <button
               onClick={() => signOut()}
-              className="py-2 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold"
+              className="py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-md shadow-rose-600/30 cursor-pointer"
             >
               Confirmar Salida
             </button>
             <button
               onClick={() => setShowSignOutConfirm(false)}
-              className="py-2 px-3 rounded-xl border border-slate-200 dark:border-white/[0.1] text-xs font-bold text-slate-600 dark:text-slate-300"
+              className="py-2.5 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/05 cursor-pointer"
             >
               Cancelar
             </button>
@@ -862,18 +813,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ isAdmin, onNavigateA
         ) : (
           <button
             onClick={() => setShowSignOutConfirm(true)}
-            className="py-2.5 px-4 rounded-2xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-black transition-all flex items-center gap-2 border border-rose-200 dark:border-rose-500/20"
+            className="py-2.5 px-4 rounded-2xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-black transition-all flex items-center gap-2 border border-rose-200 dark:border-rose-500/20 cursor-pointer"
           >
             <SignOut size={16} weight="bold" />
-            Cerrar Sesión
+            <span>Cerrar Sesión</span>
           </button>
         )}
       </motion.div>
 
-      {/* Modal de Categorías */}
-      <CategoriesManagerModal
-        isOpen={isCategoriesModalOpen}
-        onClose={() => setIsCategoriesModalOpen(false)}
+      {/* Modal para Descargar e Instalar App */}
+      <DownloadAppModal
+        isOpen={isDownloadModalOpen}
+        onClose={() => setIsDownloadModalOpen(false)}
       />
     </div>
   );

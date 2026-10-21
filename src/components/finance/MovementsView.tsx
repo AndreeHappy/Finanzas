@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import {
   FileCsv,
   CreditCard,
@@ -8,11 +8,6 @@ import {
   Plus,
   ArrowDownLeft,
   ArrowUpRight,
-  CaretDown,
-  CaretUp,
-  CalendarBlank,
-  Clock,
-  DeviceMobile,
   Money,
   PencilSimple,
 } from '@phosphor-icons/react';
@@ -21,9 +16,221 @@ import { parseLocalDateParts } from '../../utils/date';
 import { ContextualMovementModal } from './ContextualMovementModal';
 import { EditMovementModal } from './EditMovementModal';
 import { sanitizeCsvCell } from '../../utils/security';
-import type { Transaction } from '../../types';
+import { getCategoryIcon } from '../../constants/iconMap';
+import type { Transaction, WalletCard, Category } from '../../types';
 import { CompactPagination } from '../common/CompactPagination';
 
+interface InteractiveMovementCardProps {
+  tx: Transaction;
+  regNumber: number;
+  wallet?: WalletCard;
+  category?: Category;
+  isIncome: boolean;
+  borderThemeClass: string;
+  amountColorClass: string;
+  isHovered: boolean;
+  isOtherHovered: boolean;
+  onHoverStart: () => void;
+  onHoverEnd: () => void;
+  onEdit: (tx: Transaction) => void;
+  onDelete: (id: string) => void;
+}
+
+const InteractiveMovementCard: React.FC<InteractiveMovementCardProps> = ({
+  tx,
+  regNumber,
+  wallet,
+  category,
+  isIncome,
+  borderThemeClass,
+  amountColorClass,
+  isHovered,
+  isOtherHovered,
+  onHoverStart,
+  onHoverEnd,
+  onEdit,
+  onDelete,
+}) => {
+  const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  // Inclinación 3D directa sin retrasos de resorte: responde en tiempo real a la velocidad del ratón (desactivado en táctil)
+  const rotateX = useTransform(mouseY, [-0.5, 0.5], [14, -14]);
+  const rotateY = useTransform(mouseX, [-0.5, 0.5], [-14, 14]);
+  const moveX = useTransform(mouseX, [-0.5, 0.5], [-6, 6]);
+
+  const [isLocalHovered, setIsLocalHovered] = useState(false);
+  const isCardHovered = isLocalHovered || isHovered;
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isTouchDevice) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5; // -0.5 a 0.5
+    const y = (e.clientY - rect.top) / rect.height - 0.5; // -0.5 a 0.5
+    mouseX.set(x);
+    mouseY.set(y);
+  };
+
+  const handleMouseEnter = () => {
+    if (isTouchDevice) return;
+    setIsLocalHovered(true);
+    onHoverStart();
+  };
+
+  const handleMouseLeave = () => {
+    if (isTouchDevice) return;
+    animate(mouseX, 0, { type: 'spring', stiffness: 600, damping: 30 });
+    animate(mouseY, 0, { type: 'spring', stiffness: 600, damping: 30 });
+    setIsLocalHovered(false);
+    onHoverEnd();
+  };
+
+  const isCash = wallet?.type === 'cash';
+  const isSavings = wallet?.type === 'savings';
+  const paymentLabel = isCash
+    ? 'Efectivo'
+    : isSavings
+    ? 'Ahorro'
+    : wallet?.name || 'Tarjeta Digital';
+
+  const PaymentIcon = isCash ? Money : isSavings ? PiggyBank : CreditCard;
+  const paymentColorStyle = isCash
+    ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/25'
+    : isSavings
+    ? 'text-amber-500 bg-amber-500/10 border-amber-500/25'
+    : 'text-blue-500 bg-blue-500/10 border-blue-500/25';
+  const dateParts = parseLocalDateParts(tx.date);
+
+  const categoryName = category?.name || tx.category_name || 'General';
+  const categoryColor = category?.color || (isSavings ? '#f59e0b' : isIncome ? '#10b981' : '#f43f5e');
+  const CategoryIcon = getCategoryIcon(category?.icon_name || category?.name || tx.category_name || 'Tag');
+
+  // Sombra ambiental reactiva según el tipo de movimiento
+  const hoverGlowClass = isCardHovered
+    ? isSavings
+      ? 'shadow-2xl shadow-amber-500/25 border-amber-500 ring-2 ring-amber-500/30'
+      : isIncome
+      ? 'shadow-2xl shadow-emerald-500/25 border-emerald-500 ring-2 ring-emerald-500/30'
+      : 'shadow-2xl shadow-rose-500/25 border-rose-500 ring-2 ring-rose-500/30'
+    : 'hover:border-slate-300 dark:hover:border-white/20';
+
+  return (
+    <motion.div
+      layoutId={`movement-card-${tx.id}`}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{
+        opacity: isOtherHovered ? 0.75 : 1,
+        scale: isCardHovered ? 1.055 : 1,
+        y: isCardHovered ? -7 : 0,
+        zIndex: isCardHovered ? 40 : 1,
+      }}
+      transition={{
+        type: 'spring',
+        stiffness: 460,
+        damping: 32,
+        mass: 0.22,
+      }}
+      style={{
+        rotateX: isCardHovered && !isTouchDevice ? rotateX : 0,
+        rotateY: isCardHovered && !isTouchDevice ? rotateY : 0,
+        x: isCardHovered && !isTouchDevice ? moveX : 0,
+        transformPerspective: 800,
+        transformStyle: 'preserve-3d',
+      }}
+      whileTap={{ scale: 0.97 }}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onClick={() => onEdit(tx)}
+      className={`relative rounded-2xl p-3.5 sm:p-4 cursor-pointer select-none group border-2 ${borderThemeClass} ${hoverGlowClass} bg-white dark:bg-[#11131a] flex flex-col justify-between min-h-[142px] sm:min-h-[148px] shadow-sm hover:shadow-2xl transition-colors duration-150`}
+    >
+      {/* Top Row: [NOMBRE DEL MOVIMIENTO] a la izquierda, # N° REGISTRO a la derecha */}
+      <div className="flex items-start justify-between gap-2">
+        <h4
+          className="text-sm sm:text-[14px] font-black uppercase tracking-tight text-slate-900 dark:text-white line-clamp-1 truncate flex-1 transition-colors group-hover:text-slate-950 dark:group-hover:text-white"
+          title={tx.concept}
+        >
+          {tx.concept || 'MOVIMIENTO'}
+        </h4>
+
+        <span className="text-xs font-mono font-black text-slate-400 dark:text-zinc-500 shrink-0 group-hover:text-slate-600 dark:group-hover:text-zinc-300 transition-colors">
+          #{regNumber}
+        </span>
+      </div>
+
+      {/* Second Row: SOLO FECHA a la izquierda (sin la hora) + SOLO ICONO DE CATEGORÍA CON SU COLOR a la derecha */}
+      <div className="flex items-center justify-between gap-2 mt-1">
+        <div className="flex items-center text-xs font-semibold text-slate-700 dark:text-zinc-200 truncate">
+          <span>{dateParts.formattedDate}</span>
+        </div>
+
+        {/* SOLO ICONO DE LA CATEGORÍA CON SU COLOR (Mismo tamaño w-8 h-8 que el método de pago) */}
+        <div
+          className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs transition-transform group-hover:scale-105"
+          style={{
+            backgroundColor: `${categoryColor}18`,
+            borderColor: `${categoryColor}35`,
+            color: categoryColor,
+          }}
+          title={`Categoría: ${categoryName}`}
+        >
+          <CategoryIcon size={16} weight="bold" />
+        </div>
+      </div>
+
+      {/* Third Row: [MONTO DEL GASTO O GANANCIA GRANDE] a la izquierda, ICONO METODO DE PAGO a la derecha */}
+      <div className="flex items-end justify-between gap-2 mt-2.5 pt-2.5 border-t border-slate-100 dark:border-white/[0.08] min-w-0">
+        <div className="min-w-0 flex-1">
+          <div
+            className={`whitespace-nowrap inline-flex items-baseline font-mono font-black tracking-tight leading-none ${amountColorClass}`}
+          >
+            <span className="text-xl sm:text-2xl font-black mr-1 shrink-0 select-none tracking-tight">
+              {isIncome ? '+' : '-'}S/.
+            </span>
+            <span className="text-2xl sm:text-3xl font-black tracking-tight">
+              {Number(tx.amount).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+            </span>
+          </div>
+        </div>
+
+        {/* Payment Method Badge: SOLO ICONO CON SU COLOR DISTINTIVO (w-8 h-8) */}
+        <div
+          className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs ${paymentColorStyle}`}
+          title={paymentLabel}
+        >
+          <PaymentIcon size={16} weight="bold" />
+        </div>
+      </div>
+
+      {/* Quick Action Floating Controls: Acceso rápido táctil en móvil y hover en desktop */}
+      <div className="absolute top-2.5 right-2.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-white/95 dark:bg-[#1a1c26] rounded-xl p-1 shadow-md border border-slate-200 dark:border-white/10 z-30">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(tx);
+          }}
+          className="p-1 rounded-lg text-slate-600 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+          title="Editar"
+        >
+          <PencilSimple size={14} weight="bold" />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(tx.id);
+          }}
+          className="p-1 rounded-lg text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-200 hover:bg-rose-50 dark:hover:bg-rose-500/20 transition-colors cursor-pointer"
+          title="Eliminar"
+        >
+          <Trash size={14} weight="bold" />
+        </button>
+      </div>
+    </motion.div>
+  );
+};
 
 export const MovementsView: React.FC = () => {
   const {
@@ -36,30 +243,19 @@ export const MovementsView: React.FC = () => {
     selectedWallet,
   } = useFinance();
 
-  // Filtro de cuenta / tarjeta
+  // Filtro de cuenta / tarjeta: 'free_spending' (libre para gastar), 'savings' (ahorro), 'all' (ver todo)
   const [filterWalletId, setFilterWalletId] = useState<string>('free_spending');
-  // Filtro por tipo de movimiento: 'all' (todos), 'expense' (solo gastos), 'income' (solo ingresos)
+  // Filtro por tipo: 'all' (todos), 'expense' (solo gastos), 'income' (solo ingresos)
   const [filterType, setFilterType] = useState<'all' | 'expense' | 'income'>('all');
-  // Rows per page: 5, 10, 20, or Infinity ('all')
-  const [pageSize, setPageSize] = useState<number | 'all'>(5);
+  
+  // Registros por página: Default 12 (opciones 12, 20, Ver Todos)
+  const [pageSize, setPageSize] = useState<number | 'all'>(12);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
-  const [expandedTxIds, setExpandedTxIds] = useState<Set<string>>(new Set());
+  const [hoveredTxId, setHoveredTxId] = useState<string | null>(null);
 
-  const toggleExpand = (id: string) => {
-    setExpandedTxIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  // 1. Filtrado de transacciones según cuenta y tipo (Resiliente)
+  // 1. Filtrado de transacciones según cuenta y tipo
   const rawFilteredTransactions = useMemo(() => {
     let result = [...transactions];
 
@@ -69,17 +265,14 @@ export const MovementsView: React.FC = () => {
 
     // 1.1 Filtrado por cuenta / tarjeta
     if (filterWalletId === 'free_spending') {
-      // Tarjetas de gasto libre (digital y efectivo): excluir únicamente cuentas de la bóveda de ahorro
       result = result.filter((t) => !savingsWalletIds.has(t.wallet_id));
     } else if (filterWalletId === 'savings') {
-      // Solo ahorros: ÚNICAMENTE movimientos pertenecientes a cuentas de ahorro
       result = result.filter((t) => savingsWalletIds.has(t.wallet_id));
     } else if (filterWalletId !== 'all') {
-      // Tarjeta específica
       result = result.filter((t) => t.wallet_id === filterWalletId);
     }
 
-    // 1.2 Filtrado por tipo (Todos | Solo Gastos | Solo Ingresos)
+    // 1.2 Filtrado por tipo
     if (filterType === 'expense') {
       result = result.filter((t) => {
         const isSavingsTx = savingsWalletIds.has(t.wallet_id);
@@ -101,9 +294,7 @@ export const MovementsView: React.FC = () => {
     return result;
   }, [transactions, wallets, filterWalletId, filterType]);
 
-  // 2. Mapa para calcular correlativo cronológico estable (#1, #2, ..., #N)
-  // El primer movimiento registrado históricamente en el tiempo (fecha más antigua) es SIEMPRE el #1.
-  // El último movimiento realizado (fecha más reciente) es el #N (ej. #18).
+  // 2. Mapa correlativo cronológico estable (#1, #2, ..., #N)
   const txIndexMap = useMemo(() => {
     const chronological = [...rawFilteredTransactions].sort((a, b) => {
       const dateA = new Date(a.date).getTime();
@@ -121,8 +312,6 @@ export const MovementsView: React.FC = () => {
     return map;
   }, [rawFilteredTransactions]);
 
-  // 3. Orden final de transacciones para la pantalla según la preferencia elegida:
-  // - 'desc': Más recientes primero (el último hecho arriba con su badge correlativo mayor, ej. #18)
   // 3. Orden de transacciones: Más recientes primero
   const filteredTransactions = useMemo(() => {
     return [...rawFilteredTransactions].sort((a, b) => {
@@ -146,7 +335,6 @@ export const MovementsView: React.FC = () => {
     return filteredTransactions.slice(start, start + pageSize);
   }, [filteredTransactions, currentPage, pageSize]);
 
-  // Manejador de cambio de página
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
@@ -171,7 +359,6 @@ export const MovementsView: React.FC = () => {
       ];
     });
 
-
     const csvContent =
       'data:text/csv;charset=utf-8,' +
       [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
@@ -185,16 +372,15 @@ export const MovementsView: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // Título contextual según filtro
+  // Título contextual según filtro (Fiel a Imagen 4)
   const getContainerTitle = () => {
     if (filterWalletId === 'free_spending') return 'MOVIMIENTOS: LIBRE PARA GASTAR';
     if (filterWalletId === 'savings') return 'MOVIMIENTOS: CUENTAS DE AHORRO';
-    if (filterWalletId === 'all') return 'TODOS LOS MOVIMIENTOS';
+    if (filterWalletId === 'all') return 'MOVIMIENTOS: VER TODO';
     const w = wallets.find((x) => x.id === filterWalletId);
     return `MOVIMIENTOS: ${w?.name?.toUpperCase() || 'TARJETA'}`;
   };
 
-  // Cuenta activa contextual para el modal de registrar según el filtro activo
   const activeModalWallet = useMemo(() => {
     if (filterWalletId === 'savings') {
       return wallets.find((w) => w.type === 'savings') || selectedWallet || wallets[0];
@@ -205,168 +391,99 @@ export const MovementsView: React.FC = () => {
     return selectedWallet || wallets[0];
   }, [filterWalletId, wallets, selectedWallet]);
 
-  // Helper para resolver el nombre e insignia de categoría respetando las categorías reales del usuario
-  const resolveCategory = (tx: (typeof transactions)[0]) => {
-    const conceptLower = (tx.concept || '').toLowerCase();
-    const categoryNameLower = (tx.category_name || '').toLowerCase();
-
-    // 1. Si tiene category_id asociado y existe en categories del usuario, usarlo con su nombre y color real
-    if (tx.category_id) {
-      const found = categories.find((c) => c.id === tx.category_id);
-      if (found) {
-        return {
-          name: found.name,
-          color: found.color,
-        };
-      }
-    }
-
-    // 2. Coincidencia directa de nombre con alguna categoría del usuario (ej. "Reposición de Ahorro", "Retiro de Ahorro")
-    const matchByName = categories.find((c) => c.name.toLowerCase().trim() === categoryNameLower.trim());
-    if (matchByName) {
-      return {
-        name: matchByName.name,
-        color: matchByName.color,
-      };
-    }
-
-    // 3. Caso especial: Pago internet 7DS ORIGIN y LootBar -> Entretenimiento
-    if (conceptLower.includes('7ds') || conceptLower.includes('lootbar')) {
-      const entCat = categories.find((c) => c.name.toLowerCase() === 'entretenimiento');
-      return {
-        name: entCat?.name || 'Entretenimiento',
-        color: entCat?.color || '#ec4899',
-      };
-    }
-
-    // 4. Mapeos de nombres de CSV anteriores a categorías del sistema
-    if (categoryNameLower === 'comida') {
-      const cat = categories.find((c) => c.name.toLowerCase() === 'alimentación');
-      return {
-        name: cat?.name || 'Alimentación',
-        color: cat?.color || '#f59e0b',
-      };
-    }
-
-    if (categoryNameLower === 'pasajes') {
-      const cat = categories.find((c) => c.name.toLowerCase() === 'transporte');
-      return {
-        name: cat?.name || 'Transporte',
-        color: cat?.color || '#3b82f6',
-      };
-    }
-
-    // 5. Si es Aporte o Reposición a Ahorro
-    if (
-      tx.type === 'savings_deposit' ||
-      categoryNameLower === 'depósito ahorro' ||
-      conceptLower.includes('aporte a ahorro') ||
-      conceptLower.includes('reposición al fondo de ahorro') ||
-      conceptLower.includes('reposición de ahorro')
-    ) {
-      const repCat = categories.find((c) => c.name.toLowerCase() === 'reposición de ahorro');
-      return {
-        name: repCat?.name || 'Reposición de Ahorro',
-        color: repCat?.color || '#f97316',
-      };
-    }
-
-    // 6. Si es Retiro de Ahorro
-    if (
-      tx.type === 'savings_withdrawal' ||
-      categoryNameLower === 'inyección de ahorro' ||
-      categoryNameLower === 'retiro ahorro' ||
-      conceptLower.includes('retiro de bolsa de ahorro') ||
-      conceptLower.includes('retiro de ahorro')
-    ) {
-      const retCat = categories.find((c) => c.name.toLowerCase() === 'retiro de ahorro');
-      return {
-        name: retCat?.name || 'Retiro de Ahorro',
-        color: retCat?.color || '#8b5cf6',
-      };
-    }
-
-    return {
-      name: tx.category_name || 'General',
-      color: '#818cf8',
-    };
-  };
-
   return (
-    <div className="w-full max-w-5xl 2xl:max-w-6xl mx-auto space-y-6 pb-28">
-      {/* 1. Barra de Filtros Superior con Micro-animaciones */}
-      <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-3 w-full">
-        {/* Filtros de Fondo / Tarjeta */}
-        <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 p-1.5 rounded-2xl bg-slate-200/70 dark:bg-white/[0.06] border border-slate-300 dark:border-white/[0.08] w-full sm:w-auto">
-          <motion.button
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.96 }}
+    <div className="w-full max-w-7xl 2xl:max-w-[1540px] mx-auto space-y-3.5 sm:space-y-4 pb-12 sm:pb-16">
+      {/* 1. BARRA DE FILTROS SUPERIOR (ESTILO IMAGEN 4) */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 w-full">
+        {/* Pills Izquierda: [Libre para Gastar] [Ahorro] [Ver Todo] con deslizamiento fluido */}
+        <div className="flex flex-wrap items-center justify-center gap-1.5 p-1 rounded-2xl bg-slate-200/80 dark:bg-white/[0.06] border border-slate-300 dark:border-white/[0.08] w-full sm:w-auto backdrop-blur-md">
+          <button
+            type="button"
             onClick={() => {
               setFilterWalletId('free_spending');
               setCurrentPage(1);
             }}
-            className={`flex-1 sm:flex-none px-4 py-2.5 sm:px-3.5 sm:py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`relative flex-1 sm:flex-none px-4 py-2 sm:px-3.5 sm:py-1.5 rounded-xl text-xs font-black transition-colors flex items-center justify-center gap-1.5 cursor-pointer z-10 ${
               filterWalletId === 'free_spending'
-                ? 'btn-unified bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
+                ? 'text-zinc-950 dark:text-zinc-950'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
+            {filterWalletId === 'free_spending' && (
+              <motion.div
+                layoutId="activeMovementsTabPill"
+                className="absolute inset-0 bg-white rounded-xl shadow-md ring-1 ring-black/5 -z-10"
+                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+              />
+            )}
             <CreditCard size={16} weight="bold" />
             <span>Libre para Gastar</span>
-          </motion.button>
+          </button>
 
-          <motion.button
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.96 }}
+          <button
+            type="button"
             onClick={() => {
               setFilterWalletId('savings');
               setCurrentPage(1);
             }}
-            className={`flex-1 sm:flex-none px-4 py-2.5 sm:px-3.5 sm:py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`relative flex-1 sm:flex-none px-4 py-2 sm:px-3.5 sm:py-1.5 rounded-xl text-xs font-black transition-colors flex items-center justify-center gap-1.5 cursor-pointer z-10 ${
               filterWalletId === 'savings'
-                ? 'btn-unified bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
+                ? 'text-zinc-950 dark:text-zinc-950'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
+            {filterWalletId === 'savings' && (
+              <motion.div
+                layoutId="activeMovementsTabPill"
+                className="absolute inset-0 bg-white rounded-xl shadow-md ring-1 ring-black/5 -z-10"
+                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+              />
+            )}
             <PiggyBank size={16} weight="bold" />
             <span>Ahorro</span>
-          </motion.button>
+          </button>
 
-          <motion.button
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.96 }}
+          <button
+            type="button"
             onClick={() => {
               setFilterWalletId('all');
               setCurrentPage(1);
             }}
-            className={`flex-1 sm:flex-none px-4 py-2.5 sm:px-3.5 sm:py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
+            className={`relative flex-1 sm:flex-none px-4 py-2 sm:px-3.5 sm:py-1.5 rounded-xl text-xs font-black transition-colors flex items-center justify-center cursor-pointer z-10 ${
               filterWalletId === 'all'
-                ? 'btn-unified bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
+                ? 'text-zinc-950 dark:text-zinc-950'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
+            {filterWalletId === 'all' && (
+              <motion.div
+                layoutId="activeMovementsTabPill"
+                className="absolute inset-0 bg-white rounded-xl shadow-md ring-1 ring-black/5 -z-10"
+                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+              />
+            )}
             <span>Ver Todo</span>
-          </motion.button>
+          </button>
         </div>
 
-        {/* Botones rápidos destacados con feedback háptico / visual */}
+        {/* Botones Derecha: [Exportar CSV] [+ Registrar] */}
         <div className="flex items-center justify-center gap-2.5 w-full sm:w-auto">
           <motion.button
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.96 }}
             onClick={handleExportCSV}
-            title="Descargar movimientos en archivo CSV"
-            className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-xl border border-slate-300 dark:border-white/[0.1] bg-white/80 dark:bg-white/[0.05] hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+            title="Exportar movimientos a CSV"
+            className="flex-1 sm:flex-none px-4 py-2 rounded-xl border border-slate-300 dark:border-white/[0.1] bg-white/80 dark:bg-white/[0.05] hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-200 text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer backdrop-blur-md"
           >
             <FileCsv size={17} weight="bold" />
             <span>Exportar CSV</span>
           </motion.button>
 
           <motion.button
-            whileHover={{ scale: 1.06, y: -1 }}
+            whileHover={{ scale: 1.05, y: -1 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsMovementModalOpen(true)}
-            className="btn-unified flex-1 sm:flex-none px-5 py-2.5 sm:py-2 rounded-xl bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-black shadow-md shadow-black/10 dark:shadow-black/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer ring-1 ring-white/20"
+            className="btn-unified flex-1 sm:flex-none px-4 py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-black shadow-md shadow-black/10 dark:shadow-white/10 transition-all flex items-center justify-center gap-1.5 cursor-pointer ring-1 ring-white/20"
           >
             <Plus size={17} weight="bold" />
             <span>Registrar</span>
@@ -374,387 +491,208 @@ export const MovementsView: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Contenedor de Movimientos (Glassmorphic + Sombra Elegante) */}
+      {/* 2. PANEL CONTENEDOR PRINCIPAL (ESTILO IMAGEN 4) */}
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full glass-panel rounded-3xl p-6 shadow-xl shadow-slate-900/[0.05] dark:shadow-black/40"
+        transition={{ duration: 0.2 }}
+        className="w-full glass-panel rounded-3xl p-4 sm:p-5 shadow-xl shadow-slate-900/[0.05] dark:shadow-black/50 border border-slate-200/80 dark:border-white/[0.08]"
       >
-        {/* Encabezado del Contenedor */}
-        {/* Encabezado del Contenedor con Selector de Orden Cronológico */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-white/[0.08] mb-4">
+        {/* Cabecera del Contenedor: Título + Contador a la Izquierda, Filtros a la Derecha */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-white/[0.08] mb-3.5">
           <div>
-            <h3 className="text-xs sm:text-sm font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
+            <h3 className="text-sm sm:text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
               {getContainerTitle()}
             </h3>
-            <span className="text-xs font-semibold text-slate-500 font-mono">
+            <span className="text-xs font-mono font-medium text-slate-500 dark:text-slate-400">
               {totalItems} {totalItems === 1 ? 'movimiento' : 'movimientos'}
             </span>
           </div>
 
-          {/* Filtros de Tipo: Todos / Solo Gastos / Solo Ingresos */}
-          <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-200/70 dark:bg-white/[0.06] border border-slate-300 dark:border-white/[0.08] self-start sm:self-auto">
-            <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.96 }}
+          {/* Filtros de Tipo: [Todos] [Solo Gastos] [Solo Ingresos] */}
+          <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-200/80 dark:bg-white/[0.06] border border-slate-300/80 dark:border-white/[0.08] self-stretch sm:self-auto backdrop-blur-md overflow-x-auto max-w-full">
+            <button
+              type="button"
               onClick={() => {
                 setFilterType('all');
                 setCurrentPage(1);
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`relative px-3 py-1.5 rounded-xl text-xs font-black transition-colors cursor-pointer z-10 ${
                 filterType === 'all'
-                  ? 'btn-unified bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
+                  ? 'text-white dark:text-zinc-950'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
+              {filterType === 'all' && (
+                <motion.div
+                  layoutId="activeMovementsTypePill"
+                  className="absolute inset-0 bg-zinc-950 dark:bg-white rounded-xl shadow-sm -z-10"
+                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                />
+              )}
               Todos
-            </motion.button>
+            </button>
 
-            <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.96 }}
+            <button
+              type="button"
               onClick={() => {
                 setFilterType('expense');
                 setCurrentPage(1);
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`relative px-3 py-1.5 rounded-xl text-xs font-black transition-colors flex items-center gap-1.5 cursor-pointer z-10 ${
                 filterType === 'expense'
-                  ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/20 font-black'
+                  ? 'text-white'
                   : 'text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400'
               }`}
             >
+              {filterType === 'expense' && (
+                <motion.div
+                  layoutId="activeMovementsTypePill"
+                  className="absolute inset-0 bg-rose-600 rounded-xl shadow-sm shadow-rose-600/30 -z-10"
+                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                />
+              )}
               <ArrowUpRight size={14} weight="bold" />
               <span>Solo Gastos</span>
-            </motion.button>
+            </button>
 
-            <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.96 }}
+            <button
+              type="button"
               onClick={() => {
                 setFilterType('income');
                 setCurrentPage(1);
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`relative px-3 py-1.5 rounded-xl text-xs font-black transition-colors flex items-center gap-1.5 cursor-pointer z-10 ${
                 filterType === 'income'
-                  ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/20 font-black'
+                  ? 'text-white'
                   : 'text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400'
               }`}
             >
+              {filterType === 'income' && (
+                <motion.div
+                  layoutId="activeMovementsTypePill"
+                  className="absolute inset-0 bg-emerald-600 rounded-xl shadow-sm shadow-emerald-600/30 -z-10"
+                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                />
+              )}
               <ArrowDownLeft size={14} weight="bold" />
               <span>Solo Ingresos</span>
-            </motion.button>
+            </button>
           </div>
         </div>
 
-        {/* Lista de Filas de Movimiento (Diseño Acordeón Expandible Fiel a la Versión Previa) */}
+        {/* 3. GRID DE CARDS DE MOVIMIENTOS RESPONSIVE (1 COL MÓVIL, 2 SM, 3 LG, 4 XL) */}
         {paginatedTransactions.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-16">
             <p className="text-sm font-bold text-slate-600 dark:text-slate-400">
               No hay movimientos registrados para este filtro.
             </p>
             <p className="text-xs text-slate-400 mt-1">
-              Haz clic en "Registrar" para añadir un ingreso o egreso.
+              Haz clic en "+ Registrar" para añadir una nueva transacción.
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {paginatedTransactions.map((tx) => {
-              const conceptLower = (tx.concept || '').toLowerCase();
-              const catNameLower = (tx.category_name || '').toLowerCase();
+          <div onMouseLeave={() => setHoveredTxId(null)}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`${filterWalletId}-${filterType}-${currentPage}`}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.16, ease: 'easeOut' }}
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3"
+              >
+                {paginatedTransactions.map((tx) => {
+                  const conceptLower = (tx.concept || '').toLowerCase();
+                  const catNameLower = (tx.category_name || '').toLowerCase();
 
-              // Es aporte al ahorro si mueve dinero a la cuenta de ahorro (no es gasto de consumo)
-              const isSavingsDeposit =
-                !conceptLower.includes('7ds') &&
-                (tx.type === 'savings_deposit' ||
-                  catNameLower === 'reposición de ahorro' ||
-                  catNameLower === 'depósito ahorro' ||
-                  conceptLower.includes('aporte a ahorro') ||
-                  conceptLower.includes('reposición al fondo de ahorro') ||
-                  conceptLower.includes('reposición de ahorro'));
+                  const isSavingsDeposit =
+                    !conceptLower.includes('7ds') &&
+                    (tx.type === 'savings_deposit' ||
+                      catNameLower === 'reposición de ahorro' ||
+                      catNameLower === 'depósito ahorro' ||
+                      conceptLower.includes('aporte a ahorro') ||
+                      conceptLower.includes('reposición'));
 
-              // Es retiro de ahorro si libera dinero del fondo de ahorro a gastos
-              const isSavingsWithdrawal =
-                !conceptLower.includes('7ds') &&
-                (tx.type === 'savings_withdrawal' ||
-                  catNameLower === 'retiro de ahorro' ||
-                  catNameLower === 'inyección de ahorro' ||
-                  (conceptLower.includes('retiro') && conceptLower.includes('ahorro')));
+                  const isSavingsWithdrawal =
+                    !conceptLower.includes('7ds') &&
+                    (tx.type === 'savings_withdrawal' ||
+                      catNameLower === 'retiro de ahorro' ||
+                      catNameLower === 'inyección de ahorro' ||
+                      (conceptLower.includes('retiro') && conceptLower.includes('ahorro')));
 
-              const wallet = wallets.find((w) => w.id === tx.wallet_id);
-              const isSavingsWalletTx = wallet?.type === 'savings';
+                  const wallet = wallets.find((w) => w.id === tx.wallet_id);
+                  const isSavingsWalletTx = wallet?.type === 'savings';
+                  const isSavingsRelated = isSavingsWalletTx || isSavingsDeposit || isSavingsWithdrawal;
 
-              // Es una transacción vinculada a la operativa de ahorro
-              const isSavingsRelated = isSavingsWalletTx || isSavingsDeposit || isSavingsWithdrawal;
+                  let isIncome = false;
+                  if (isSavingsWalletTx) {
+                    isIncome = isSavingsDeposit || tx.type === 'income';
+                  } else {
+                    if (isSavingsWithdrawal) {
+                      isIncome = true;
+                    } else if (isSavingsDeposit) {
+                      isIncome = false;
+                    } else {
+                      isIncome = tx.type === 'income';
+                    }
+                  }
 
-              // Determinar si suma o resta de esta tarjeta:
-              // - En cuenta de ahorro: depósito es suma (+), retiro es resta (-)
-              // - En cuenta libre (digital/efectivo): retiro de ahorro entrante es suma (+), aporte enviado es resta (-)
-              let isIncome = false;
-              if (isSavingsWalletTx) {
-                isIncome = isSavingsDeposit || tx.type === 'income';
-              } else {
-                if (isSavingsWithdrawal) {
-                  isIncome = true;
-                } else if (isSavingsDeposit) {
-                  isIncome = false;
-                } else {
-                  isIncome = tx.type === 'income';
-                }
-              }
+                  // Determine border & theme according to wireframe in Image 4:
+                  let borderThemeClass =
+                    'border-rose-400/90 bg-white dark:bg-[#0e1017] hover:border-rose-500 shadow-sm hover:shadow-xl hover:shadow-rose-500/10 dark:border-rose-500/80';
+                  let amountColorClass = 'text-rose-600 dark:text-rose-400';
 
-              // Color del Monto según especificación:
-              // - En cuenta de ahorro: color mostaza / ámbar diferenciador
-              // - En libre para gastar:
-              //    * Si entra monto desde el ahorro al digital: verde (+S/.)
-              //    * Si sale monto hacia el ahorro desde el digital: amarillo/mostaza (-S/.)
-              //    * Ingreso estándar: verde (+S/.)
-              //    * Gasto estándar: rojo (-S/.)
-              let amountColorClass = 'text-rose-600 dark:text-rose-400';
-              if (isSavingsWalletTx) {
-                amountColorClass = 'text-amber-500 dark:text-amber-400 font-bold';
-              } else if (isSavingsWithdrawal) {
-                amountColorClass = 'text-emerald-600 dark:text-emerald-400 font-bold';
-              } else if (isSavingsDeposit) {
-                amountColorClass = 'text-amber-500 dark:text-amber-400 font-bold';
-              } else if (isIncome) {
-                amountColorClass = 'text-emerald-600 dark:text-emerald-400';
-              }
+                  if (isSavingsRelated) {
+                    borderThemeClass =
+                      'border-amber-400/90 bg-white dark:bg-[#0e1017] hover:border-amber-500 shadow-sm hover:shadow-xl hover:shadow-amber-500/10 dark:border-amber-400/80';
+                    amountColorClass = 'text-amber-600 dark:text-amber-400';
+                  } else if (isIncome) {
+                    borderThemeClass =
+                      'border-emerald-400/90 bg-white dark:bg-[#0e1017] hover:border-emerald-500 shadow-sm hover:shadow-xl hover:shadow-emerald-500/10 dark:border-emerald-500/80';
+                    amountColorClass = 'text-emerald-600 dark:text-emerald-400';
+                  }
 
-              const resolvedCat = resolveCategory(tx);
-              const regNumber = txIndexMap.get(tx.id) ?? 1;
-              const isExpanded = expandedTxIds.has(tx.id);
+                  const regNumber = txIndexMap.get(tx.id) ?? 1;
+                  const isHovered = hoveredTxId === tx.id;
+                  const isOtherHovered = hoveredTxId !== null && hoveredTxId !== tx.id;
+                  const category = categories.find(
+                    (c) => c.id === tx.category_id || c.name.toLowerCase() === (tx.category_name || '').toLowerCase()
+                  );
 
-              // Formatear Fecha y Hora precisas sin desfaces UTC
-              const dateParts = parseLocalDateParts(tx.date);
-
-              // Determinar Tipo de Fondo
-              const isCash = wallet?.type === 'cash';
-              const isSavings = wallet?.type === 'savings';
-              const fundLabel = isCash
-                ? 'Efectivo / Físico'
-                : isSavings
-                ? 'Ahorro / Metas'
-                : 'Digital / Bancos';
-
-              return (
-                <motion.div
-                  key={tx.id}
-                  layout
-                  whileHover={{ scale: 1.006, y: -1 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                  className="w-full glass-pill hover:bg-white/80 dark:hover:bg-white/[0.08] rounded-2xl p-4 transition-all shadow-sm hover:shadow-md"
-                >
-                  {/* Fila Principal / Cabecera (Click para expandir detalles) */}
-                  <div
-                    onClick={() => toggleExpand(tx.id)}
-                    className="flex items-center justify-between cursor-pointer select-none"
-                  >
-                    {/* Lado Izquierdo: Icono Flecha/Cerdito + Concepto + Badges */}
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      {/* Icono: Cerdito para todo lo de ahorro (Ahorro, o transferencias de/hacia ahorro), Flecha Verde para Ingreso, Flecha Roja para Gasto */}
-                      <div
-                        className={`w-11 h-11 rounded-2xl shrink-0 flex items-center justify-center border transition-all select-none ${
-                          isSavingsRelated
-                            ? isSavingsWithdrawal && !isSavingsWalletTx
-                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                              : 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
-                            : isIncome
-                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                            : 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
-                        }`}
-                      >
-                        {isSavingsRelated ? (
-                          <PiggyBank size={22} weight="bold" />
-                        ) : isIncome ? (
-                          <ArrowDownLeft size={22} weight="bold" />
-                        ) : (
-                          <ArrowUpRight size={22} weight="bold" />
-                        )}
-                      </div>
-
-                      <div className="min-w-0">
-                        {/* Concepto / Título */}
-                        <h4 className="text-sm sm:text-base font-black text-slate-900 dark:text-white truncate">
-                          {tx.concept}
-                        </h4>
-
-                        {/* Badges: Categoría, Fecha con icono, y Fondo (El N° de registro solo se muestra al hacer click) */}
-                        <div className="flex flex-wrap items-center gap-2 mt-1">
-                          {/* Badge de Categoría con color */}
-                          <span
-                            className="text-[11px] font-bold px-2 py-0.5 rounded-lg border"
-                            style={{
-                              backgroundColor: `${resolvedCat.color}15`,
-                              borderColor: `${resolvedCat.color}35`,
-                              color: resolvedCat.color,
-                            }}
-                          >
-                            {resolvedCat.name}
-                          </span>
-
-                          {/* Badge de Fecha */}
-                          <span className="text-[11px] font-mono px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-400 border border-slate-300/60 dark:border-white/[0.05] flex items-center gap-1">
-                            <CalendarBlank size={12} weight="bold" className="text-slate-400" />
-                            {dateParts.formattedDate}
-                          </span>
-
-                          {/* Badge de Tipo de Fondo */}
-                          <span className="text-[11px] font-bold flex items-center gap-1">
-                            {isCash ? (
-                              <>
-                                <Money size={14} weight="bold" className="text-emerald-500" />
-                                <span className="text-emerald-600 dark:text-emerald-400">Efectivo</span>
-                              </>
-                            ) : isSavings ? (
-                              <>
-                                <PiggyBank size={14} weight="bold" className="text-purple-500" />
-                                <span className="text-purple-600 dark:text-purple-400">Ahorro</span>
-                              </>
-                            ) : (
-                              <>
-                                <DeviceMobile size={14} weight="bold" className="text-sky-500" />
-                                <span className="text-sky-600 dark:text-sky-400">Digital</span>
-                              </>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Lado Derecho: Monto y Caret Expand/Collapse */}
-                    <div className="flex items-center gap-3 shrink-0 pl-3">
-                      <span
-                        className={`text-base sm:text-lg font-black font-mono tracking-tight ${amountColorClass}`}
-                      >
-                        {isIncome ? '+' : '-'}S/.{' '}
-                        {Number(tx.amount).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
-                      </span>
-
-                      {/* Botón rápido de editar en la fila */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingTx(tx);
-                        }}
-                        title="Editar movimiento"
-                        className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors cursor-pointer"
-                      >
-                        <PencilSimple size={16} weight="bold" />
-                      </button>
-
-                      <div className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
-                        {isExpanded ? (
-                          <CaretUp size={16} weight="bold" />
-                        ) : (
-                          <CaretDown size={16} weight="bold" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Contenido Desplegable (Accordion de Detalles y Número de Registro) */}
-                  <AnimatePresence>
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="border-t border-slate-300/80 dark:border-white/[0.08] mt-3.5 pt-3.5 space-y-3">
-                          {/* Cuadrícula de 4 Datos: Registro, Hora, Fecha, Fondo */}
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3.5 rounded-xl bg-slate-100 dark:bg-black/25 border border-slate-300/60 dark:border-white/[0.06]">
-                            <div>
-                              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                                # N° REGISTRO
-                              </span>
-                              <span className="text-sm font-black font-mono text-slate-900 dark:text-white mt-0.5 block">
-                                #{regNumber}
-                              </span>
-                            </div>
-
-                            <div>
-                              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                <Clock size={11} weight="bold" /> HORA
-                              </span>
-                              <span className="text-sm font-black font-mono text-slate-900 dark:text-white mt-0.5 block">
-                                {dateParts.formattedTime}
-                              </span>
-                            </div>
-
-                            <div>
-                              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                <CalendarBlank size={11} weight="bold" /> FECHA
-                              </span>
-                              <span className="text-sm font-black font-mono text-slate-900 dark:text-white mt-0.5 block">
-                                {dateParts.formattedDate}
-                              </span>
-                            </div>
-
-                            <div>
-                              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                                FONDO
-                              </span>
-                              <span className="text-xs sm:text-sm font-black text-sky-600 dark:text-sky-400 mt-0.5 block truncate">
-                                {fundLabel}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Caja de Cita: Concepto o Notas */}
-                          <div className="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-white/[0.03] border border-slate-300/60 dark:border-white/[0.06]">
-                            <p className="text-xs font-mono italic text-slate-700 dark:text-slate-300">
-                              "{tx.notes || tx.concept || wallet?.name}"
-                            </p>
-                          </div>
-
-                          {/* Botones de Acción: Editar y Eliminar Registro */}
-                          <div className="flex items-center justify-end gap-2 pt-1">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingTx(tx);
-                              }}
-                              className="px-3.5 py-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
-                            >
-                              <PencilSimple size={14} weight="bold" />
-                              <span>Editar Registro</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteTransaction(tx.id);
-                              }}
-                              className="px-3.5 py-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
-                            >
-                              <Trash size={14} weight="bold" />
-                              <span>Eliminar Registro</span>
-                            </button>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
-              );
-            })}
+                  return (
+                    <InteractiveMovementCard
+                      key={tx.id}
+                      tx={tx}
+                      regNumber={regNumber}
+                      wallet={wallet}
+                      category={category}
+                      isIncome={isIncome}
+                      borderThemeClass={borderThemeClass}
+                      amountColorClass={amountColorClass}
+                      isHovered={isHovered}
+                      isOtherHovered={isOtherHovered}
+                      onHoverStart={() => setHoveredTxId(tx.id)}
+                      onHoverEnd={() => setHoveredTxId(null)}
+                      onEdit={setEditingTx}
+                      onDelete={deleteTransaction}
+                    />
+                  );
+                })}
+              </motion.div>
+            </AnimatePresence>
           </div>
         )}
 
-        {/* 3. Controles Inferiores (Fiel al Boceto 2): Filas por Página y Paginador */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-5 border-t border-slate-200 dark:border-white/[0.08]">
-          {/* Selector de Filas: Mostrar 5, 10, 20, Ver Todos */}
+        {/* 4. CONTROLES INFERIORES (PAGINACIÓN EXACTA A IMAGEN 4) */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-3.5 pt-3 border-t border-slate-200 dark:border-white/[0.08]">
+          {/* Mostrar: [12] [20] [Ver Todos] */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-black text-slate-500 dark:text-slate-400">
               Mostrar:
             </span>
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-200/80 dark:bg-white/[0.06]">
-              {([5, 10, 20, 'all'] as const).map((sz) => (
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-200/80 dark:bg-white/[0.06] backdrop-blur-md">
+              {([12, 20, 'all'] as const).map((sz) => (
                 <motion.button
                   key={sz}
                   whileHover={{ scale: 1.05 }}
@@ -763,9 +701,9 @@ export const MovementsView: React.FC = () => {
                     setPageSize(sz);
                     setCurrentPage(1);
                   }}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                  className={`px-3 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
                     pageSize === sz
-                      ? 'btn-unified bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
+                      ? 'bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
@@ -775,7 +713,7 @@ export const MovementsView: React.FC = () => {
             </div>
           </div>
 
-          {/* Botones de Paginación Compacta Inteligente (1 2 3 ... 21) */}
+          {/* Paginador Compacto: < [1] [2] [3] ... [32] > */}
           {pageSize !== 'all' && totalPages > 1 && (
             <CompactPagination
               currentPage={currentPage}
@@ -787,7 +725,7 @@ export const MovementsView: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* Modal para Registrar Movimiento con Cuenta Contextual */}
+      {/* MODAL REGISTRAR MOVIMIENTO */}
       <ContextualMovementModal
         isOpen={isMovementModalOpen}
         onClose={() => setIsMovementModalOpen(false)}
@@ -797,19 +735,16 @@ export const MovementsView: React.FC = () => {
         onAddTransaction={addTransaction}
       />
 
-      {/* Modal para Editar Movimiento Existente */}
-      {editingTx && (
-        <EditMovementModal
-          isOpen={Boolean(editingTx)}
-          onClose={() => setEditingTx(null)}
-          transaction={editingTx}
-          wallets={wallets}
-          categories={categories}
-          onSave={async (id, updates) => {
-            await updateTransaction(id, updates);
-          }}
-        />
-      )}
+      {/* MODAL EDITAR MOVIMIENTO */}
+      <EditMovementModal
+        isOpen={Boolean(editingTx)}
+        onClose={() => setEditingTx(null)}
+        transaction={editingTx}
+        movementNumber={editingTx ? (txIndexMap.get(editingTx.id) ?? 1) : 1}
+        wallets={wallets}
+        categories={categories}
+        onSave={updateTransaction}
+      />
     </div>
   );
 };

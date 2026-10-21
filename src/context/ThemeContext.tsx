@@ -54,7 +54,23 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [style, mode]);
 
   const toggleTheme = () => {
-    setMode((prev) => (prev === 'dark' ? 'light' : 'dark'));
+    setMode((prev) => {
+      const next: ThemeMode = prev === 'dark' ? 'light' : 'dark';
+      try {
+        localStorage.setItem(LOCAL_STORAGE_THEME_MODE_KEY, next);
+        const root = document.documentElement;
+        if (next === 'light') {
+          root.classList.remove('dark');
+          root.classList.add('light');
+        } else {
+          root.classList.remove('light');
+          root.classList.add('dark');
+        }
+      } catch (e) {
+        console.error('Error toggling theme:', e);
+      }
+      return next;
+    });
   };
 
   return (

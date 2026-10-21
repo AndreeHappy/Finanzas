@@ -1,4 +1,4 @@
-export type ActiveModule = 'inicio' | 'vista' | 'estadisticas' | 'ajustes' | 'admin';
+export type ActiveModule = 'inicio' | 'movimientos' | 'vista' | 'estadisticas' | 'automatizacion' | 'categorias' | 'ajustes' | 'admin';
 
 export type WalletType = 'digital' | 'cash' | 'savings';
 export type FundType = 'physical' | 'digital';
@@ -6,6 +6,24 @@ export type FundType = 'physical' | 'digital';
 export type CategoryType = 'expense' | 'income';
 
 export type MovementType = 'income' | 'expense' | 'savings_deposit' | 'savings_withdrawal' | 'pending_expense';
+
+export interface Subscription {
+  id: string;
+  user_id?: string;
+  name: string;
+  amount: number;
+  billing_cycle: 'monthly' | 'yearly';
+  billing_day: number; // 1-31
+  category_id?: string;
+  category_name?: string;
+  wallet_id?: string;
+  icon_name: string;
+  color: string;
+  status: 'active' | 'paused';
+  next_billing_date: string;
+  notes?: string;
+  created_at?: string;
+}
 
 export interface WalletCard {
   id: string;

@@ -3,7 +3,8 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { DEFAULT_CATEGORIES } from '../constants/categories';
 import { parseLocalDateParts } from '../utils/date';
-import { sanitizeAmount, sanitizeTextInput } from '../utils/security';
+import { sanitizeAmount, sanitizeTextInput, hasSqlInjectionPattern } from '../utils/security';
+import { CacheManager } from '../utils/cache';
 
 import type {
   WalletCard,
@@ -213,6 +214,21 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       setIsLoading(true);
 
+      // 0. SWR Cache check para renderizado instantáneo anti-cuello de botella
+      const cachedWallets = CacheManager.get<WalletCard[]>(`wallets_${targetUserId}`).data;
+      const cachedCats = CacheManager.get<Category[]>(`cats_${targetUserId}`).data;
+      const cachedTx = CacheManager.get<Transaction[]>(`tx_${targetUserId}`).data;
+      if (cachedWallets && cachedWallets.length > 0) {
+        setWallets(cachedWallets);
+        setSelectedWalletId((prev) => (cachedWallets.some((w) => w.id === prev) ? prev : cachedWallets[0].id));
+      }
+      if (cachedCats && cachedCats.length > 0) {
+        setCategories(cachedCats);
+      }
+      if (cachedTx && cachedTx.length > 0) {
+        setTransactions(cachedTx);
+      }
+
       // 1. Cargar wallets_cards con reintento automático anti-race condition
       let remoteWallets: WalletCard[] | null = null;
       let wError: any = null;
@@ -242,6 +258,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (!wError && remoteWallets) {
         if (remoteWallets.length > 0) {
           setWallets(remoteWallets);
+          CacheManager.set(`wallets_${targetUserId}`, remoteWallets, 180000);
           setSelectedWalletId((prev) => (remoteWallets!.some((w) => w.id === prev) ? prev : remoteWallets![0].id));
         } else {
           // Si el usuario verdaderamente es nuevo y no tiene tarjetas en Supabase, crearlas automáticamente
@@ -311,6 +328,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (!cError && remoteCategories) {
         if (remoteCategories.length > 0) {
           setCategories(remoteCategories);
+          CacheManager.set(`cats_${targetUserId}`, remoteCategories, 360000);
         } else {
           // Si el usuario no tiene categorías creadas en Supabase, insertar las 10 oficiales automáticamente
           const defaultCategoriesToInsert = [
@@ -333,6 +351,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
           if (!insertCatsErr && createdCats && createdCats.length > 0) {
             setCategories(createdCats);
+            CacheManager.set(`cats_${targetUserId}`, createdCats, 360000);
           }
         }
       }
@@ -352,6 +371,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         if (!tError && remoteTx) {
           setTransactions(remoteTx);
+          CacheManager.set(`tx_${targetUserId}`, remoteTx, 180000);
           break;
         }
       }
@@ -600,6 +620,15 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       throw new Error('El concepto del movimiento no puede estar vacío.');
     }
 
+    // Blindaje contra Inyección SQL en conceptos o notas
+    if (
+      hasSqlInjectionPattern(sanitizedConcept) ||
+      hasSqlInjectionPattern(txData.notes || '') ||
+      hasSqlInjectionPattern(txData.category_name || '')
+    ) {
+      throw new Error('Operación bloqueada por seguridad: Caracteres no permitidos (inyección SQL detectada).');
+    }
+
     // 1. Normalizar nombres heredados (Comida -> Alimentación, Pasajes -> Transporte, etc.)
     let finalCategoryName = sanitizeTextInput(txData.category_name || 'General', 60);
     const catNameLower = finalCategoryName.toLowerCase();
@@ -677,26 +706,43 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
 
         if (data) {
+          CacheManager.remove(`tx_${user?.id || 'local'}`);
           setTransactions((prev) => [data, ...prev]);
           refreshData().catch((e) => console.warn('Error refrescando datos:', e));
           return;
         }
       } catch (err: any) {
         console.warn('Error guardando transacción en Supabase, guardando localmente:', err);
+        CacheManager.remove(`tx_${user?.id || 'local'}`);
         setTransactions((prev) => [newTx, ...prev]);
         throw err;
       }
     }
 
+    CacheManager.remove(`tx_${user?.id || 'local'}`);
     setTransactions((prev) => [newTx, ...prev]);
   };
 
   // Actualizar movimiento
   const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
+    CacheManager.remove(`tx_${user?.id || 'local'}`);
     if (user && isSupabaseConfigured && supabase) {
       try {
         const payload: Record<string, any> = {};
-        if (updates.concept !== undefined) payload.concept = sanitizeTextInput(updates.concept, 120);
+        if (updates.concept !== undefined) {
+          const sanitizedConcept = sanitizeTextInput(updates.concept, 120);
+          if (hasSqlInjectionPattern(sanitizedConcept)) {
+            throw new Error('Operación bloqueada: Caracteres sospechosos en el concepto.');
+          }
+          payload.concept = sanitizedConcept;
+        }
+        if (updates.notes !== undefined && updates.notes) {
+          const sanitizedNotes = sanitizeTextInput(updates.notes, 250);
+          if (hasSqlInjectionPattern(sanitizedNotes)) {
+            throw new Error('Operación bloqueada: Caracteres sospechosos en las notas.');
+          }
+          payload.notes = sanitizedNotes;
+        }
         if (updates.amount !== undefined) {
           const amtCheck = sanitizeAmount(updates.amount);
           if (amtCheck.isValid) payload.amount = amtCheck.amount;
@@ -733,6 +779,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Eliminar movimiento
   const deleteTransaction = async (id: string) => {
+    CacheManager.remove(`tx_${user?.id || 'local'}`);
     if (user && isSupabaseConfigured && supabase) {
       try {
         await supabase.from('transactions').delete().eq('id', id);

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CalendarBlank,
@@ -60,6 +61,9 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
 
   // Fecha seleccionada actual
   const parsedValue = useMemo(() => parseDateParts(value), [value]);
@@ -76,10 +80,49 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
     }
   }, [value, parsedValue.isValid, isOpen]);
 
-  // Cierre al hacer clic fuera del componente
+  // Cálculo de coordenadas flotantes (sin clipping ni scrolls internos)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const updateCoords = () => {
+      if (!buttonRef.current) return;
+      const rect = buttonRef.current.getBoundingClientRect();
+      const popoverWidth = 320;
+      const popoverHeight = 350;
+
+      let left = rect.left;
+      if (left + popoverWidth > window.innerWidth - 12) {
+        left = Math.max(12, window.innerWidth - popoverWidth - 12);
+      }
+      if (left < 12) left = 12;
+
+      let top = rect.bottom + 6;
+      if (top + popoverHeight > window.innerHeight && rect.top > popoverHeight + 20) {
+        top = Math.max(10, rect.top - popoverHeight - 6);
+      }
+
+      setCoords({ top, left });
+    };
+
+    updateCoords();
+    window.addEventListener('resize', updateCoords);
+    window.addEventListener('scroll', updateCoords, true);
+    return () => {
+      window.removeEventListener('resize', updateCoords);
+      window.removeEventListener('scroll', updateCoords, true);
+    };
+  }, [isOpen]);
+
+  // Cierre al hacer clic fuera del componente (tanto botón como popover flotante)
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        buttonRef.current &&
+        !buttonRef.current.contains(target) &&
+        popoverRef.current &&
+        !popoverRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     };
@@ -228,6 +271,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
 
       {/* Botón Disparador Estilizado */}
       <button
+        ref={buttonRef}
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen((prev) => !prev)}
@@ -257,112 +301,124 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
         )}
       </button>
 
-      {/* Popover Desplegable del Calendario */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 4, scale: 0.98 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="absolute left-0 sm:left-auto right-0 sm:right-auto mt-1.5 z-50 w-72 sm:w-80 rounded-3xl bg-white dark:bg-[#181a26] border border-slate-200 dark:border-white/[0.12] shadow-2xl p-4 backdrop-blur-2xl"
-          >
-            {/* Cabecera del Calendario: Mes, Año y Controles */}
-            <div className="flex items-center justify-between pb-3 mb-2 border-b border-slate-100 dark:border-white/[0.06]">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-black text-slate-900 dark:text-white">
-                  {MONTH_NAMES_ES[viewMonth]}
-                </span>
-                <span className="text-sm font-bold font-mono text-slate-500 dark:text-slate-400">
-                  {viewYear}
-                </span>
-              </div>
+      {/* Popover Desplegable del Calendario renderizado en Portal Flotante sin clipping */}
+      {typeof document !== 'undefined' &&
+        document.body &&
+        createPortal(
+          <AnimatePresence>
+            {isOpen && coords && (
+              <motion.div
+                ref={popoverRef}
+                initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                style={{
+                  position: 'fixed',
+                  top: coords.top,
+                  left: coords.left,
+                  zIndex: 999999,
+                }}
+                className="w-72 sm:w-80 rounded-3xl bg-white dark:bg-[#181a26] border border-slate-200 dark:border-white/[0.12] shadow-2xl p-4 backdrop-blur-2xl"
+              >
+                {/* Cabecera del Calendario: Mes, Año y Controles */}
+                <div className="flex items-center justify-between pb-3 mb-2 border-b border-slate-100 dark:border-white/[0.06]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-black text-slate-900 dark:text-white">
+                      {MONTH_NAMES_ES[viewMonth]}
+                    </span>
+                    <span className="text-sm font-bold font-mono text-slate-500 dark:text-slate-400">
+                      {viewYear}
+                    </span>
+                  </div>
 
-              <div className="flex items-center gap-1 bg-slate-100 dark:bg-white/[0.06] p-0.5 rounded-xl border border-slate-200/80 dark:border-white/10">
-                <button
-                  type="button"
-                  onClick={handlePrevMonth}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
-                  title="Mes anterior"
-                >
-                  <CaretLeft size={14} weight="bold" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleNextMonth}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
-                  title="Mes siguiente"
-                >
-                  <CaretRight size={14} weight="bold" />
-                </button>
-              </div>
-            </div>
-
-            {/* Fila de Días de la Semana */}
-            <div className="grid grid-cols-7 gap-1 text-center mb-1.5">
-              {WEEKDAYS_ES.map((wd, i) => (
-                <div
-                  key={i}
-                  className="text-[10px] font-black tracking-wider text-slate-400 dark:text-slate-500 uppercase select-none py-1"
-                >
-                  {wd}
+                  <div className="flex items-center gap-1 bg-slate-100 dark:bg-white/[0.06] p-0.5 rounded-xl border border-slate-200/80 dark:border-white/10">
+                    <button
+                      type="button"
+                      onClick={handlePrevMonth}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+                      title="Mes anterior"
+                    >
+                      <CaretLeft size={14} weight="bold" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNextMonth}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+                      title="Mes siguiente"
+                    >
+                      <CaretRight size={14} weight="bold" />
+                    </button>
+                  </div>
                 </div>
-              ))}
-            </div>
 
-            {/* Cuadrícula de Días */}
-            <div className="grid grid-cols-7 gap-1 text-center">
-              {calendarDays.map((cd, idx) => {
-                const isSelected = cd.isSelected;
-                const isToday = cd.isToday;
-                const isCurrent = cd.isCurrentMonth;
+                {/* Fila de Días de la Semana */}
+                <div className="grid grid-cols-7 gap-1 text-center mb-1.5">
+                  {WEEKDAYS_ES.map((wd, i) => (
+                    <div
+                      key={i}
+                      className="text-[10px] font-black tracking-wider text-slate-400 dark:text-slate-500 uppercase select-none py-1"
+                    >
+                      {wd}
+                    </div>
+                  ))}
+                </div>
 
-                return (
+                {/* Cuadrícula de Días */}
+                <div className="grid grid-cols-7 gap-1 text-center">
+                  {calendarDays.map((cd, idx) => {
+                    const isSelected = cd.isSelected;
+                    const isToday = cd.isToday;
+                    const isCurrent = cd.isCurrentMonth;
+
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleSelectDate(cd.dateStr)}
+                        className={`h-8 sm:h-9 rounded-xl text-xs font-mono font-bold transition-all flex items-center justify-center relative cursor-pointer active:scale-90 select-none ${
+                          isSelected
+                            ? 'bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-md font-black z-10'
+                            : isToday
+                            ? 'border border-emerald-500/80 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10'
+                            : isCurrent
+                            ? 'text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.08]'
+                            : 'text-slate-300 dark:text-slate-600 hover:bg-slate-50 dark:hover:bg-white/[0.03]'
+                        }`}
+                      >
+                        <span>{cd.day}</span>
+                        {isToday && !isSelected && (
+                          <span className="absolute bottom-1 w-1 h-1 rounded-full bg-emerald-500" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Pie del Calendario: Acciones Rápidas */}
+                <div className="pt-3 mt-3 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between text-xs">
                   <button
-                    key={idx}
                     type="button"
-                    onClick={() => handleSelectDate(cd.dateStr)}
-                    className={`h-8 sm:h-9 rounded-xl text-xs font-mono font-bold transition-all flex items-center justify-center relative cursor-pointer active:scale-90 select-none ${
-                      isSelected
-                        ? 'bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-md font-black z-10'
-                        : isToday
-                        ? 'border border-emerald-500/80 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10'
-                        : isCurrent
-                        ? 'text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.08]'
-                        : 'text-slate-300 dark:text-slate-600 hover:bg-slate-50 dark:hover:bg-white/[0.03]'
-                    }`}
+                    onClick={handleSelectToday}
+                    className="px-2.5 py-1 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold flex items-center gap-1 transition-colors cursor-pointer"
                   >
-                    <span>{cd.day}</span>
-                    {isToday && !isSelected && (
-                      <span className="absolute bottom-1 w-1 h-1 rounded-full bg-emerald-500" />
-                    )}
+                    <ArrowClockwise size={12} weight="bold" />
+                    <span>Hoy</span>
                   </button>
-                );
-              })}
-            </div>
 
-            {/* Pie del Calendario: Acciones Rápidas */}
-            <div className="pt-3 mt-3 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between text-xs">
-              <button
-                type="button"
-                onClick={handleSelectToday}
-                className="px-2.5 py-1 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold flex items-center gap-1 transition-colors cursor-pointer"
-              >
-                <ArrowClockwise size={12} weight="bold" />
-                <span>Hoy</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="px-3 py-1 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10 font-bold transition-colors cursor-pointer"
-              >
-                Cerrar
-              </button>
-            </div>
-          </motion.div>
+                  <button
+                    type="button"
+                    onClick={() => setIsOpen(false)}
+                    className="px-3 py-1 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10 font-bold transition-colors cursor-pointer"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body
         )}
-      </AnimatePresence>
     </div>
   );
 };

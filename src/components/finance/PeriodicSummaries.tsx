@@ -110,15 +110,20 @@ export const PeriodicSummaries: React.FC<Props> = ({
       {sections.map((sec, idx) => (
         <motion.div
           key={sec.id}
-          initial={{ opacity: 0, y: 8 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          whileHover={{ y: -2 }}
-          transition={{ delay: idx * 0.06, duration: 0.18 }}
-          className="w-full glass-panel rounded-2xl p-3 sm:p-3.5 shadow-md shadow-slate-900/[0.04] dark:shadow-black/35 hover:shadow-lg transition-all"
+          whileHover={{ y: -3, scale: 1.008 }}
+          transition={{
+            delay: idx * 0.05,
+            type: 'spring',
+            stiffness: 350,
+            damping: 24,
+          }}
+          className="w-full glass-panel rounded-2xl p-3 sm:p-3.5 shadow-md shadow-slate-900/[0.04] dark:shadow-black/35 hover:shadow-xl hover:border-slate-300/90 dark:hover:border-white/20 transition-all duration-200 group"
         >
           {/* Título de la tarjeta */}
           <div className="flex items-center justify-between mb-2 sm:mb-2.5">
-            <h4 className="text-[11px] sm:text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">
+            <h4 className="text-[11px] sm:text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 group-hover:text-slate-950 dark:group-hover:text-white transition-colors">
               {sec.title}
             </h4>
             <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400">
@@ -127,21 +132,23 @@ export const PeriodicSummaries: React.FC<Props> = ({
           </div>
 
           {/* Dos pastillas: GASTOS e INGRESOS con Glassmorphism y Micro-animación */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
+          <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
             {/* Pastilla de Gastos */}
             <motion.div
-              whileHover={{ scale: 1.015 }}
-              className="glass-pill rounded-xl p-2.5 sm:p-3 flex items-center justify-between shadow-sm cursor-default"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              className="glass-pill rounded-xl p-2 sm:p-3 flex items-center justify-between shadow-2xs hover:shadow-md hover:border-rose-400/50 transition-all cursor-default min-w-0"
             >
-              <div className="flex items-center gap-2 sm:gap-2.5">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-                  <TrendDown size={16} weight="bold" />
+              <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 transition-transform group-hover:scale-105">
+                  <TrendDown size={15} weight="bold" />
                 </div>
-                <div>
-                  <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                <div className="min-w-0">
+                  <span className="text-[8px] sm:text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 block truncate">
                     GASTOS
                   </span>
-                  <span className="text-xs sm:text-sm lg:text-base font-black font-mono text-slate-900 dark:text-white">
+                  <span className="text-[11px] sm:text-sm lg:text-base font-black font-mono text-slate-900 dark:text-white block truncate">
                     S/. {sec.data.expenses.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
@@ -150,18 +157,20 @@ export const PeriodicSummaries: React.FC<Props> = ({
 
             {/* Pastilla de Ingresos */}
             <motion.div
-              whileHover={{ scale: 1.015 }}
-              className="glass-pill rounded-xl p-2.5 sm:p-3 flex items-center justify-between shadow-sm cursor-default"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              className="glass-pill rounded-xl p-2 sm:p-3 flex items-center justify-between shadow-2xs hover:shadow-md hover:border-emerald-400/50 transition-all cursor-default min-w-0"
             >
-              <div className="flex items-center gap-2 sm:gap-2.5">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                  <TrendUp size={16} weight="bold" />
+              <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 transition-transform group-hover:scale-105">
+                  <TrendUp size={15} weight="bold" />
                 </div>
-                <div>
-                  <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                <div className="min-w-0">
+                  <span className="text-[8px] sm:text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 block truncate">
                     INGRESOS
                   </span>
-                  <span className="text-xs sm:text-sm lg:text-base font-black font-mono text-emerald-600 dark:text-emerald-400">
+                  <span className="text-[11px] sm:text-sm lg:text-base font-black font-mono text-emerald-600 dark:text-emerald-400 block truncate">
                     S/. {sec.data.income.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
