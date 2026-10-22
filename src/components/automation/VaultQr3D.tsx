@@ -372,14 +372,32 @@ export const VaultQr3D: React.FC<VaultQr3DProps> = ({
       const billStrapBlue = currentTheme.strapBlue;
 
       // =========================================================================
+      // DIMENSIONAMIENTO UNIFICADO 2D Y 3D (CERO SALTOS BRUSCOS AL COMPLETAR TRANSICIÓN)
+      // =========================================================================
+      const margin = 1;
+      const totalSpan = size + margin * 2;
+      const halfFloor = totalSpan / 2;
+      const slabDepth = 0.95;
+
+      // Tamaño base proporcionado y armónico con las tarjetas de la izquierda
+      const max2DSpan = isMobile ? 350 : 440;
+      const base2DSize = Math.min(width - 32, height - 32, max2DSpan);
+      const cellSize = (base2DSize / totalSpan) * currentZoom;
+      const topdownScale = cellSize;
+
+      const isoSpanX = halfFloor * 2 * 1.414;
+      const isoSpanY = halfFloor * 2 * 0.816 + 3.2;
+      const baseIsoScale = Math.min((width - 24) / isoSpanX, (height - 24) / isoSpanY);
+      const effectiveIsoScale = baseIsoScale * currentZoom;
+
+      const scale = (1 - p) * topdownScale + p * effectiveIsoScale;
+      const centerY = (1 - p) * (height / 2) + p * (height / 2 + scale * 0.5);
+
+      // =========================================================================
       // CASO 1: MODO 2D QR PLANO ESTRICTO (p === 0)
       // Centrado perfecto a cualquier zoom, 3 batch calls sin cálculos 3D. 120 FPS.
       // =========================================================================
       if (p === 0) {
-        const margin = 1;
-        const totalSpan = size + margin * 2;
-        const baseCellSize = Math.min((width - 32) / totalSpan, (height - 32) / totalSpan);
-        const cellSize = baseCellSize * currentZoom;
         const qrLeft = centerX - (size * cellSize) / 2;
         const qrTop = (height / 2) - (size * cellSize) / 2;
 
@@ -439,17 +457,6 @@ export const VaultQr3D: React.FC<VaultQr3DProps> = ({
       // CASO 2: TRANSICIÓN 3D <-> 2D O MODO ISOMÉTRICO 3D (0 < p <= 1)
       // =========================================================================
       const isAnimating = animProgressRef.current !== animTargetPRef.current;
-      const halfFloor = (size - 1) / 2 + 0.5 + 0.85;
-      const slabDepth = 0.95;
-
-      const topdownScale = 380 / (halfFloor * 2);
-      const isoSpanX = halfFloor * 2 * 1.414;
-      const isoSpanY = halfFloor * 2 * 0.816 + 3.2;
-      const baseIsoScale = Math.min((width - 24) / isoSpanX, (height - 24) / isoSpanY);
-      const effectiveIsoScale = baseIsoScale * currentZoom;
-
-      const scale = (1 - p) * topdownScale + p * effectiveIsoScale;
-      const centerY = (1 - p) * (height / 2) + p * (height / 2 + scale * 0.5);
 
       const baseAzimuth = (45 * Math.PI) / 180;
       const userAzimuth = (dragAngleRef.current * Math.PI) / 180;
@@ -513,11 +520,28 @@ export const VaultQr3D: React.FC<VaultQr3DProps> = ({
       // 3. Renderizado de bloques (Lados 3D solo cuando la elevación lo hace visible p > 0.12)
       const showSides = p > 0.12;
 
+      // Reflejo periódico de luz suave que barre diagonalmente (cada 3.6s un haz destella)
+      const gleamCycle = 3.6;
+      const gleamPhase = (timeRef.current * 0.75) % gleamCycle;
+      const isGleaming = gleamPhase < 1.1;
+      const gleamProgress = isGleaming ? gleamPhase / 1.1 : -1;
+      const gleamDiag = isGleaming ? -halfFloor * 1.3 + gleamProgress * (halfFloor * 2.6) : -999;
+
       for (let i = 0; i < blocks.length; i++) {
         const blk = blocks[i];
         const bx = blk.x;
         const by = blk.y;
         const k = blk.stackCount;
+
+        // Intensidad del destello de luz sobre este bloque
+        let gleamIntensity = 0;
+        if (isGleaming) {
+          const blkDiag = (bx + by) * 0.707;
+          const dist = Math.abs(blkDiag - gleamDiag);
+          if (dist < 1.6) {
+            gleamIntensity = Math.pow(1 - dist / 1.6, 2);
+          }
+        }
 
         if (blk.isFinder) {
           const w = 0.48;
@@ -551,6 +575,11 @@ export const VaultQr3D: React.FC<VaultQr3DProps> = ({
           ctx.closePath();
           ctx.fillStyle = '#090d16';
           ctx.fill();
+
+          if (gleamIntensity > 0) {
+            ctx.fillStyle = `rgba(255, 255, 255, ${gleamIntensity * 0.25})`;
+            ctx.fill();
+          }
 
         } else if (blk.type === 'gold_bar') {
           const H_BAR = 0.20;
@@ -592,6 +621,12 @@ export const VaultQr3D: React.FC<VaultQr3DProps> = ({
           ctx.closePath();
           ctx.fillStyle = '#f59e0b';
           ctx.fill();
+
+          // Reflejo destellante de luz sobre la cara superior del lingote de oro
+          if (gleamIntensity > 0) {
+            ctx.fillStyle = `rgba(255, 255, 220, ${gleamIntensity * 0.55})`;
+            ctx.fill();
+          }
 
           // Bisel troquelado en reposo 3D en escritorio
           if (!isMobile && !isAnimating && p > 0.8) {
@@ -644,6 +679,12 @@ export const VaultQr3D: React.FC<VaultQr3DProps> = ({
           ctx.fillStyle = billTop;
           ctx.fill();
 
+          // Reflejo suave de luz sobre los billetes
+          if (gleamIntensity > 0) {
+            ctx.fillStyle = `rgba(255, 255, 255, ${gleamIntensity * 0.35})`;
+            ctx.fill();
+          }
+
           // Banda de seguridad blanca con línea central azul
           if (p > 0.18) {
             const sw = w * 0.22;
@@ -665,8 +706,6 @@ export const VaultQr3D: React.FC<VaultQr3DProps> = ({
           }
         }
       }
-
-      ctx.restore();
 
       // En modo 2D QR plano (topdown): si la transición terminó y el zoom está quieto, pausamos el bucle para ahorrar 100% de CPU/GPU
       const isSettledTopdown = animProgressRef.current === 0 && animTargetPRef.current === 0 && Math.abs(zoomDiff) <= 0.001;
@@ -783,7 +822,7 @@ export const VaultQr3D: React.FC<VaultQr3DProps> = ({
       {/* Contenedor Flotante Ampliado en 3D con 100% de Protagonismo */}
       <div
         ref={containerRef}
-        className="relative w-full max-w-[540px] sm:max-w-[580px] lg:max-w-[620px] aspect-square flex items-center justify-center select-none cursor-grab active:cursor-grabbing"
+        className="relative w-full max-w-[500px] sm:max-w-[540px] lg:max-w-[580px] aspect-square flex items-center justify-center select-none cursor-grab active:cursor-grabbing overflow-hidden rounded-3xl"
         onDoubleClick={handleDoubleClick}
         onClick={toggleViewMode}
         onMouseDown={handleMouseDown}
@@ -796,6 +835,17 @@ export const VaultQr3D: React.FC<VaultQr3DProps> = ({
         title={viewMode === 'isometric' ? 'Clic o arrastra para rotar • Rueda del ratón para zoom' : 'Clic para ver Bóveda 3D'}
       >
         <canvas ref={canvasRef} className="w-full h-full block" />
+
+        {/* Haz sutil de reflejo de luz (acelerado por GPU, 0 lag) */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-3xl z-10">
+          <div
+            className="w-[180%] h-44 absolute -top-1/4 -left-1/2 pointer-events-none opacity-40 dark:opacity-20"
+            style={{
+              background: 'linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.7) 50%, transparent 65%)',
+              animation: 'qrReflectSweep 4.5s ease-in-out infinite',
+            }}
+          />
+        </div>
       </div>
     </div>
   );

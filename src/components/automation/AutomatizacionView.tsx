@@ -318,8 +318,8 @@ export const AutomatizacionView: React.FC = () => {
 
   return (
     <div className="w-full flex flex-col items-center justify-center space-y-4 py-1 select-none">
-      {/* BARRA SUPERIOR LIMPIA CENTRADA CON LOS 2 BOTONES */}
-      <div className="flex items-center justify-center border-b border-slate-200/80 dark:border-white/[0.08] pb-3 w-full max-w-4xl">
+      {/* BARRA SUPERIOR LIMPIA CENTRADA CON LOS 2 BOTONES (SIN LÍNEA DIVISORIA) */}
+      <div className="flex items-center justify-center pb-2 w-full max-w-4xl">
         <div className="flex items-center bg-slate-100 dark:bg-white/[0.06] p-1.5 rounded-2xl border border-slate-200/80 dark:border-white/10 text-xs font-black">
           <button
             type="button"
