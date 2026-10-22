@@ -14,6 +14,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   ArrowsLeftRight,
+  PiggyBank,
 } from '@phosphor-icons/react';
 import { useFinance } from '../../context/FinanceContext';
 import type { Transaction } from '../../types';
@@ -195,7 +196,7 @@ const TiltCard: React.FC<TiltCardProps> = ({ children, className = '', onClick, 
           }}
         />
       )}
-      <div className={`relative z-10 w-full h-full flex flex-col justify-between ${allowOverflow ? 'overflow-visible' : ''}`}>
+      <div className={`relative z-10 w-full h-full flex flex-col justify-between min-h-0 ${allowOverflow ? 'overflow-visible' : ''}`}>
         {children}
       </div>
     </motion.div>
@@ -324,20 +325,43 @@ export const StatisticsView: React.FC = () => {
     if (selectedMonthIndex < availableMonths.length - 1) setSelectedMonthIndex((prev) => prev + 1);
   };
 
-  // Identificador de transferencias de ahorro que no deben computarse como gasto
-  const isSavingsTransfer = (t: Transaction) => {
+  // 1. Transferencia saliente hacia fondo de ahorro protegido (deducción de fondos libres)
+  const isSavingsOutflow = (t: Transaction) => {
     const concept = (t.concept || '').toLowerCase();
     const catName = (t.category_name || '').toLowerCase();
     if (concept.includes('7ds') || concept.includes('lootbar')) return false;
-    return (
-      t.type === 'savings_deposit' ||
-      t.type === 'savings_withdrawal' ||
-      catName.includes('ahorro') ||
-      concept.includes('ahorro') ||
-      concept.includes('reposición') ||
-      concept.includes('reposicion')
-    );
+    if (t.type === 'savings_deposit') return true;
+    if (t.type === 'expense' || !t.type) {
+      return (
+        catName.includes('ahorro') ||
+        concept.includes('ahorro') ||
+        catName.includes('reposición') ||
+        catName.includes('reposicion') ||
+        concept.includes('reposición') ||
+        concept.includes('reposicion')
+      );
+    }
+    return false;
   };
+
+  // 2. Transferencia entrante desde ahorro hacia cuenta libre (retiro de fondos de ahorro)
+  const isSavingsInflow = (t: Transaction) => {
+    const concept = (t.concept || '').toLowerCase();
+    const catName = (t.category_name || '').toLowerCase();
+    if (concept.includes('7ds') || concept.includes('lootbar')) return false;
+    if (t.type === 'savings_withdrawal') return true;
+    if (t.type === 'income') {
+      return (
+        catName.includes('retiro') ||
+        concept.includes('retiro de ahorro') ||
+        concept.includes('retiro desde ahorro')
+      );
+    }
+    return false;
+  };
+
+  // Identificador general de cualquier movimiento vinculado a ahorro
+  const isSavingsTransfer = (t: Transaction) => isSavingsOutflow(t) || isSavingsInflow(t);
 
   // Resolver categoría con color e icono exacto
   const resolveStatCategory = (t: Transaction): { name: string; color: string; icon_name: string } => {
@@ -475,13 +499,18 @@ export const StatisticsView: React.FC = () => {
   const monthlyTotals = useMemo(() => {
     let income = 0;
     let expense = 0;
+    let savingsOutflow = 0;
+    let savingsInflow = 0;
     let incomeCount = 0;
     let expenseCount = 0;
 
     for (const t of selectedPeriodTx) {
-      if (isSavingsTransfer(t)) continue;
       const amt = Number(t.amount) || 0;
-      if (t.type === 'income') {
+      if (isSavingsOutflow(t)) {
+        savingsOutflow += amt;
+      } else if (isSavingsInflow(t)) {
+        savingsInflow += amt;
+      } else if (t.type === 'income') {
         income += amt;
         incomeCount++;
       } else if (t.type === 'expense') {
@@ -491,7 +520,8 @@ export const StatisticsView: React.FC = () => {
     }
 
     const total = income + expense;
-    const net = income - expense;
+    // Flujo neto real disponible: ingresos más retiros de ahorro menos gastos de consumo y fondos enviados a ahorro
+    const net = (income + savingsInflow) - (expense + savingsOutflow);
     const incomePercent = total > 0 ? (income / total) * 100 : 0;
     const expensePercent = total > 0 ? (expense / total) * 100 : 0;
     const superavitRate = income > 0 ? (net / income) * 100 : 0;
@@ -499,6 +529,8 @@ export const StatisticsView: React.FC = () => {
     return {
       income,
       expense,
+      savingsOutflow,
+      savingsInflow,
       incomeCount,
       expenseCount,
       total,
@@ -525,18 +557,29 @@ export const StatisticsView: React.FC = () => {
     for (let d = 1; d <= maxDay; d++) {
       const dayTxs = selectedPeriodTx.filter((t) => {
         const td = new Date(t.date.includes('T') ? t.date : `${t.date}T12:00:00`);
-        return td.getDate() === d && !isSavingsTransfer(t);
+        return td.getDate() === d;
       });
 
       let inc = 0;
       let exp = 0;
+      let savOut = 0;
+      let savIn = 0;
+
       for (const t of dayTxs) {
         const amt = Number(t.amount) || 0;
-        if (t.type === 'income') inc += amt;
-        if (t.type === 'expense') exp += amt;
+        if (isSavingsOutflow(t)) {
+          savOut += amt;
+        } else if (isSavingsInflow(t)) {
+          savIn += amt;
+        } else if (t.type === 'income') {
+          inc += amt;
+        } else if (t.type === 'expense') {
+          exp += amt;
+        }
       }
 
-      const net = inc - exp;
+      // El neto diario descuenta el dinero asignado a ahorro protegido
+      const net = (inc + savIn) - (exp + savOut);
       runningCumNet += net;
       runningCumExpense += exp;
       runningCumIncome += inc;
@@ -550,6 +593,8 @@ export const StatisticsView: React.FC = () => {
         day: d,
         income: inc,
         expense: exp,
+        savingsOutflow: savOut,
+        savingsInflow: savIn,
         net,
         cumNet: runningCumNet,
         cumExpense: runningCumExpense,
@@ -586,16 +631,25 @@ export const StatisticsView: React.FC = () => {
     for (let d = 1; d <= daysInMonth; d++) {
       const dayTxs = prevPeriodTx.filter((t) => {
         const td = new Date(t.date.includes('T') ? t.date : `${t.date}T12:00:00`);
-        return td.getDate() === d && !isSavingsTransfer(t);
+        return td.getDate() === d;
       });
       let inc = 0;
       let exp = 0;
+      let savOut = 0;
+      let savIn = 0;
       for (const t of dayTxs) {
         const amt = Number(t.amount) || 0;
-        if (t.type === 'income') inc += amt;
-        if (t.type === 'expense') exp += amt;
+        if (isSavingsOutflow(t)) {
+          savOut += amt;
+        } else if (isSavingsInflow(t)) {
+          savIn += amt;
+        } else if (t.type === 'income') {
+          inc += amt;
+        } else if (t.type === 'expense') {
+          exp += amt;
+        }
       }
-      runningCumNet += (inc - exp);
+      runningCumNet += ((inc + savIn) - (exp + savOut));
       days.push({ day: d, cumNet: runningCumNet });
     }
     return days;
@@ -621,7 +675,7 @@ export const StatisticsView: React.FC = () => {
     const paddingY = 25;
 
     const totalDays = Math.max(days.length, comparePreviousMonth ? prevMonthDailyData.length : days.length);
-    const maxDailyTx = Math.max(1, ...days.map((d) => Math.max(d.income || 0, d.expense || 0)));
+    const maxDailyTx = Math.max(1, ...days.map((d) => Math.max(d.income || 0, d.expense || 0, d.savingsOutflow || 0)));
 
     const currentPoints = days.map((d, i) => {
       const x = paddingX + (i / Math.max(1, totalDays - 1)) * (width - paddingX * 2);
@@ -634,6 +688,8 @@ export const StatisticsView: React.FC = () => {
         net: d.net,
         income: d.income || 0,
         expense: d.expense || 0,
+        savingsOutflow: d.savingsOutflow || 0,
+        savingsInflow: d.savingsInflow || 0,
         isPeak: d.isPeak,
       };
     });
@@ -686,7 +742,7 @@ export const StatisticsView: React.FC = () => {
         
         {/* PANEL IZQUIERDO: GASTOS POR CATEGORÍA (BARRAS O PASTEL SEGÚN SWITCHER) */}
         <TiltCard
-          className="lg:col-span-7 glass-panel rounded-3xl p-4 sm:p-5 shadow-xl shadow-slate-900/[0.04] dark:shadow-black/40 flex flex-col justify-between border border-slate-200/80 dark:border-white/[0.08] relative group cursor-pointer"
+          className="lg:col-span-7 h-full min-h-0 lg:max-h-[580px] xl:max-h-[590px] glass-panel rounded-3xl p-4 sm:p-5 shadow-xl shadow-slate-900/[0.04] dark:shadow-black/40 flex flex-col justify-between border border-slate-200/80 dark:border-white/[0.08] relative group cursor-pointer"
           onClick={() => setExpandedModal('categoryBars')}
         >
           {/* Header con Switcher [Barras | Pastel] y Botón Ampliar */}
@@ -779,8 +835,8 @@ export const StatisticsView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Filas de Categorías: Ocupa todo el alto disponible del cuadro sin espacios muertos */}
-                <div className="relative z-10 flex-1 flex flex-col gap-1.5 sm:gap-2 py-1 pr-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-thin">
+                {/* Filas de Categorías: Altura contenida y scrollbar suave sin desbordar el contenedor principal */}
+                <div className="relative z-10 flex-1 flex flex-col gap-1.5 sm:gap-2 py-1 pr-1 min-h-0 max-h-[360px] sm:max-h-[380px] lg:max-h-[395px] overflow-y-auto overflow-x-hidden scrollbar-thin">
                   {categoryExpenses.items.map((cat, idx) => {
                     const IconComp = getCategoryIcon(cat.icon_name || cat.name);
                     const barWidth = Math.max(4, Math.min(100, (cat.amount / barScale.max) * 100));
@@ -853,7 +909,7 @@ export const StatisticsView: React.FC = () => {
                 </div>
 
                 {/* Eje X Numérico */}
-                <div className="mt-1 pt-1.5 border-t border-slate-200 dark:border-white/10 flex items-center pl-28 sm:pl-36 pr-3 shrink-0">
+                <div className="mt-auto pt-1.5 border-t border-slate-200 dark:border-white/10 flex items-center pl-28 sm:pl-36 pr-3 shrink-0">
                   <div className="relative w-full h-4">
                     {barScale.ticks.map((tick, i) => {
                       const leftPct = (tick / barScale.max) * 100;
@@ -1067,11 +1123,11 @@ export const StatisticsView: React.FC = () => {
         </TiltCard>
 
         {/* COLUMNA DERECHA: PASTEL INGRESOS/GASTOS & EVOLUCIÓN DIARIA CURVADA */}
-        <div className="lg:col-span-5 flex flex-col gap-3.5 sm:gap-4">
+        <div className="lg:col-span-5 flex flex-col justify-between gap-3.5 sm:gap-4 h-full min-h-0">
           
           {/* PANEL 2: PASTEL SOLIDO DE INGRESOS Y GASTOS (CON TILT Y HOVER ANIMADO) */}
           <TiltCard
-            className="glass-panel rounded-3xl p-4 sm:p-5 shadow-xl shadow-slate-900/[0.04] dark:shadow-black/40 border border-slate-200/80 dark:border-white/[0.08] cursor-pointer"
+            className="glass-panel rounded-3xl p-4 sm:p-5 shadow-xl shadow-slate-900/[0.04] dark:shadow-black/40 border border-slate-200/80 dark:border-white/[0.08] cursor-pointer flex-1 flex flex-col justify-between"
             onClick={() => setExpandedModal('monthlyPie')}
           >
             <div className="flex items-center justify-between pb-2.5 border-b border-slate-200 dark:border-white/[0.08] mb-2" onClick={(e) => e.stopPropagation()}>
@@ -1189,6 +1245,17 @@ export const StatisticsView: React.FC = () => {
                     </span>
                   </div>
                 </div>
+
+                {monthlyTotals.savingsOutflow > 0 && (
+                  <div className="px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-between text-xs font-mono">
+                    <span className="font-bold text-cyan-700 dark:text-cyan-300 flex items-center gap-1.5 text-[11px]">
+                      <PiggyBank size={14} weight="bold" /> Ahorro protegido:
+                    </span>
+                    <span className="font-black text-cyan-600 dark:text-cyan-400">
+                      S/. {monthlyTotals.savingsOutflow.toFixed(2)}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </TiltCard>
@@ -1196,7 +1263,7 @@ export const StatisticsView: React.FC = () => {
           {/* PANEL 3: EVOLUCIÓN DIARIA CURVADA CON BARRAS DE INGRESO/GASTO Y BURBUJA INTERACTIVA */}
           <TiltCard
             allowOverflow={true}
-            className="glass-panel rounded-3xl p-4 sm:p-5 shadow-xl shadow-slate-900/[0.04] dark:shadow-black/40 border border-slate-200/80 dark:border-white/[0.08] cursor-pointer"
+            className="glass-panel rounded-3xl p-4 sm:p-5 shadow-xl shadow-slate-900/[0.04] dark:shadow-black/40 border border-slate-200/80 dark:border-white/[0.08] cursor-pointer flex-1 flex flex-col justify-between"
             onClick={() => setExpandedModal('evolution')}
           >
             <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200 dark:border-white/[0.08] mb-2" onClick={(e) => e.stopPropagation()}>
@@ -1433,7 +1500,31 @@ export const StatisticsView: React.FC = () => {
                           </div>
                         )}
 
-                        {pt.income === 0 && pt.expense === 0 && (
+                        {pt.savingsOutflow > 0 && (
+                          <div className="flex items-center justify-between text-xs font-mono py-0.5">
+                            <span className="text-slate-600 dark:text-slate-300 font-bold flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-cyan-500 shadow-xs" />
+                              Ahorro:
+                            </span>
+                            <span className="font-black text-cyan-600 dark:text-cyan-400">
+                              -S/. {pt.savingsOutflow.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+
+                        {pt.savingsInflow > 0 && (
+                          <div className="flex items-center justify-between text-xs font-mono py-0.5">
+                            <span className="text-slate-600 dark:text-slate-300 font-bold flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-xs" />
+                              Retiro ahorro:
+                            </span>
+                            <span className="font-black text-emerald-500">
+                              +S/. {pt.savingsInflow.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+
+                        {pt.income === 0 && pt.expense === 0 && pt.savingsOutflow === 0 && pt.savingsInflow === 0 && (
                           <div className="text-[11px] text-slate-400 dark:text-slate-500 font-medium italic py-0.5">
                             Sin movimientos directos
                           </div>
@@ -2048,10 +2139,25 @@ export const StatisticsView: React.FC = () => {
                           </div>
                         </div>
 
+                        {monthlyTotals.savingsOutflow > 0 && (
+                          <div className="p-3.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-between text-xs font-mono">
+                            <span className="font-bold text-cyan-700 dark:text-cyan-300 flex items-center gap-2">
+                              <PiggyBank size={18} weight="bold" /> Ahorro Protegido (Bóveda)
+                            </span>
+                            <span className="font-black text-cyan-600 dark:text-cyan-400 text-sm">
+                              S/. {monthlyTotals.savingsOutflow.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+
                         <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 flex items-center justify-between">
                           <div>
-                            <span className="text-xs font-bold text-slate-400 block">Balance Neto del Período</span>
-                            <span className="text-xs text-slate-500">Ingresos menos egresos directos</span>
+                            <span className="text-xs font-bold text-slate-400 block">Balance Neto Disponible</span>
+                            <span className="text-xs text-slate-500">
+                              {monthlyTotals.savingsOutflow > 0
+                                ? 'Ingresos menos gastos y ahorro protegido'
+                                : 'Ingresos menos gastos directos'}
+                            </span>
                           </div>
                           <span className={`text-xl font-black font-mono ${monthlyTotals.net >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                             {monthlyTotals.net >= 0 ? '+' : '-'}S/. {Math.abs(monthlyTotals.net).toFixed(2)}
@@ -2265,7 +2371,31 @@ export const StatisticsView: React.FC = () => {
                                       </div>
                                     )}
 
-                                    {pt.income === 0 && pt.expense === 0 && (
+                                    {pt.savingsOutflow > 0 && (
+                                      <div className="flex items-center justify-between text-xs font-mono py-0.5">
+                                        <span className="text-slate-600 dark:text-slate-300 font-bold flex items-center gap-1.5">
+                                          <span className="w-2 h-2 rounded-full bg-cyan-500 shadow-xs" />
+                                          Ahorro:
+                                        </span>
+                                        <span className="font-black text-cyan-600 dark:text-cyan-400">
+                                          -S/. {pt.savingsOutflow.toFixed(2)}
+                                        </span>
+                                      </div>
+                                    )}
+
+                                    {pt.savingsInflow > 0 && (
+                                      <div className="flex items-center justify-between text-xs font-mono py-0.5">
+                                        <span className="text-slate-600 dark:text-slate-300 font-bold flex items-center gap-1.5">
+                                          <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-xs" />
+                                          Retiro ahorro:
+                                        </span>
+                                        <span className="font-black text-emerald-500">
+                                          +S/. {pt.savingsInflow.toFixed(2)}
+                                        </span>
+                                      </div>
+                                    )}
+
+                                    {pt.income === 0 && pt.expense === 0 && pt.savingsOutflow === 0 && pt.savingsInflow === 0 && (
                                       <div className="text-[11px] text-slate-400 dark:text-slate-500 font-medium italic py-0.5">
                                         Sin movimientos directos
                                       </div>
@@ -2321,6 +2451,7 @@ export const StatisticsView: React.FC = () => {
                                 <th className="py-2.5 px-3">Día</th>
                                 <th className="py-2.5 px-3 text-right">Ingreso</th>
                                 <th className="py-2.5 px-3 text-right">Gasto</th>
+                                <th className="py-2.5 px-3 text-right">Ahorro</th>
                                 <th className="py-2.5 px-3 text-right">Acumulado</th>
                                 <th className="py-2.5 px-3 text-center">Estado</th>
                               </tr>
@@ -2344,6 +2475,9 @@ export const StatisticsView: React.FC = () => {
                                     </td>
                                     <td className="py-2 px-3 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
                                       {d.expense > 0 ? `-${d.expense.toFixed(0)}` : '-'}
+                                    </td>
+                                    <td className="py-2 px-3 text-right font-mono font-bold text-cyan-600 dark:text-cyan-400">
+                                      {d.savingsOutflow > 0 ? `-${d.savingsOutflow.toFixed(0)}` : d.savingsInflow > 0 ? `+${d.savingsInflow.toFixed(0)}` : '-'}
                                     </td>
                                     <td className={`py-2 px-3 text-right font-mono font-bold ${d.cumNet >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                                       S/. {d.cumNet.toFixed(0)}
