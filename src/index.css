@@ -437,21 +437,3 @@ html.light .bg-\[\#141217\] button:has(svg.ph-x):hover {
   color: #0f172a !important;
 }
 
-/* HAZ DE REFLEJO DE LUZ ULTRA-LIGERO EN GPU (0 LAG) */
-@keyframes qrReflectSweep {
-  0% {
-    transform: translate3d(-120%, -120%, 0) rotate(25deg);
-    opacity: 0;
-  }
-  12% {
-    opacity: 0.55;
-  }
-  28% {
-    transform: translate3d(120%, 120%, 0) rotate(25deg);
-    opacity: 0;
-  }
-  100% {
-    transform: translate3d(120%, 120%, 0) rotate(25deg);
-    opacity: 0;
-  }
-}

@@ -520,28 +520,21 @@ export const VaultQr3D: React.FC<VaultQr3DProps> = ({
       // 3. Renderizado de bloques (Lados 3D solo cuando la elevación lo hace visible p > 0.12)
       const showSides = p > 0.12;
 
-      // Reflejo periódico de luz suave que barre diagonalmente (cada 3.6s un haz destella)
-      const gleamCycle = 3.6;
-      const gleamPhase = (timeRef.current * 0.75) % gleamCycle;
-      const isGleaming = gleamPhase < 1.1;
-      const gleamProgress = isGleaming ? gleamPhase / 1.1 : -1;
-      const gleamDiag = isGleaming ? -halfFloor * 1.3 + gleamProgress * (halfFloor * 2.6) : -999;
+      // Reflejo sereno y pausado que recorre exclusivamente los lingotes de oro (ciclo pausado cada 6.2s)
+      const nowSec = performance.now() * 0.001;
+      const gleamCycle = 6.2;
+      const gleamPhase = nowSec % gleamCycle;
+      const sweepDuration = 2.4;
+      const isGleaming = p > 0.15 && gleamPhase < sweepDuration;
+      const gleamProgress = isGleaming ? gleamPhase / sweepDuration : -1;
+      const gleamDiag = isGleaming ? -halfFloor * 1.4 + gleamProgress * (halfFloor * 2.8) : -999;
+      const gleamBandWidth = 2.6;
 
       for (let i = 0; i < blocks.length; i++) {
         const blk = blocks[i];
         const bx = blk.x;
         const by = blk.y;
         const k = blk.stackCount;
-
-        // Intensidad del destello de luz sobre este bloque
-        let gleamIntensity = 0;
-        if (isGleaming) {
-          const blkDiag = (bx + by) * 0.707;
-          const dist = Math.abs(blkDiag - gleamDiag);
-          if (dist < 1.6) {
-            gleamIntensity = Math.pow(1 - dist / 1.6, 2);
-          }
-        }
 
         if (blk.isFinder) {
           const w = 0.48;
@@ -575,11 +568,6 @@ export const VaultQr3D: React.FC<VaultQr3DProps> = ({
           ctx.closePath();
           ctx.fillStyle = '#090d16';
           ctx.fill();
-
-          if (gleamIntensity > 0) {
-            ctx.fillStyle = `rgba(255, 255, 255, ${gleamIntensity * 0.25})`;
-            ctx.fill();
-          }
 
         } else if (blk.type === 'gold_bar') {
           const H_BAR = 0.20;
@@ -622,10 +610,15 @@ export const VaultQr3D: React.FC<VaultQr3DProps> = ({
           ctx.fillStyle = '#f59e0b';
           ctx.fill();
 
-          // Reflejo destellante de luz sobre la cara superior del lingote de oro
-          if (gleamIntensity > 0) {
-            ctx.fillStyle = `rgba(255, 255, 220, ${gleamIntensity * 0.55})`;
-            ctx.fill();
+          // Reflejo destellante exclusivo de los lingotes de oro (onda suave coseno)
+          if (isGleaming) {
+            const blkDiag = (bx + by) * 0.707;
+            const dist = Math.abs(blkDiag - gleamDiag);
+            if (dist < gleamBandWidth) {
+              const goldIntensity = 0.5 * (1 + Math.cos((dist / gleamBandWidth) * Math.PI));
+              ctx.fillStyle = `rgba(255, 252, 220, ${goldIntensity * 0.65})`;
+              ctx.fill();
+            }
           }
 
           // Bisel troquelado en reposo 3D en escritorio
@@ -678,12 +671,6 @@ export const VaultQr3D: React.FC<VaultQr3DProps> = ({
           ctx.closePath();
           ctx.fillStyle = billTop;
           ctx.fill();
-
-          // Reflejo suave de luz sobre los billetes
-          if (gleamIntensity > 0) {
-            ctx.fillStyle = `rgba(255, 255, 255, ${gleamIntensity * 0.35})`;
-            ctx.fill();
-          }
 
           // Banda de seguridad blanca con línea central azul
           if (p > 0.18) {
@@ -835,17 +822,6 @@ export const VaultQr3D: React.FC<VaultQr3DProps> = ({
         title={viewMode === 'isometric' ? 'Clic o arrastra para rotar • Rueda del ratón para zoom' : 'Clic para ver Bóveda 3D'}
       >
         <canvas ref={canvasRef} className="w-full h-full block" />
-
-        {/* Haz sutil de reflejo de luz (acelerado por GPU, 0 lag) */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-3xl z-10">
-          <div
-            className="w-[180%] h-44 absolute -top-1/4 -left-1/2 pointer-events-none opacity-40 dark:opacity-20"
-            style={{
-              background: 'linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.7) 50%, transparent 65%)',
-              animation: 'qrReflectSweep 4.5s ease-in-out infinite',
-            }}
-          />
-        </div>
       </div>
     </div>
   );
