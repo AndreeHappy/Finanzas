@@ -80,8 +80,11 @@ const MainPortal: React.FC = () => {
         isSidebarExpanded ? 'md:pl-[236px]' : 'md:pl-[72px]'
       }`}
     >
-      {/* Header Transparente Alineado */}
-      <header className="w-full bg-transparent px-3 sm:px-6 lg:px-8 pt-3 sm:pt-4 pb-1.5 sm:pb-2 select-none relative z-20">
+      {/* Header Transparente Alineado (con soporte de Safe Area para muescas y barra de estado) */}
+      <header
+        className="w-full bg-transparent px-3 sm:px-6 lg:px-8 pb-1.5 sm:pb-2 select-none relative z-20"
+        style={{ paddingTop: 'max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.5rem))' }}
+      >
         <div className="w-full max-w-7xl 2xl:max-w-[1540px] mx-auto flex items-center justify-between">
           {/* Header en pantallas móviles: Saludo a la izquierda, Botón de Tema celestial a la derecha */}
           <div className="flex md:hidden items-center justify-between w-full">
@@ -132,7 +135,10 @@ const MainPortal: React.FC = () => {
       <InteractiveBackground />
 
       {/* Vista Principal según Módulo Activo con Centrado Óptico y Scroll Móvil Libre */}
-      <main className="flex-1 w-full flex flex-col items-center justify-start md:justify-center px-2.5 sm:px-6 lg:px-8 py-2 sm:py-3 pb-36 md:pb-6 relative z-10">
+      <main
+        className="flex-1 w-full flex flex-col items-center justify-start md:justify-center px-2.5 sm:px-6 lg:px-8 py-2 sm:py-3 md:pb-6 relative z-10"
+        style={{ paddingBottom: 'max(9rem, calc(env(safe-area-inset-bottom, 0px) + 8rem))' }}
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={activeModule}

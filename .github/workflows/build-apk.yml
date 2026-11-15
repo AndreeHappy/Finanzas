@@ -81,5 +81,7 @@ jobs:
             - Descarga el archivo `finanzas-app.apk` e instálalo directamente en tu teléfono Android.
             - Compilado automáticamente con Capacitor 8 y Android SDK 36.
           files: output_apk/finanzas-app.apk
+          make_latest: true
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

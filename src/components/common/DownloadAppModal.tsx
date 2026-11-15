@@ -42,7 +42,7 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({ isOpen, onCl
   if (typeof document === 'undefined') return null;
 
   const apkDownloadUrl =
-    'https://github.com/AndreeHappy/Finanzas/releases/latest/download/finanzas-app.apk';
+    'https://github.com/AndreeHappy/Finanzas/releases/download/android-app-latest/finanzas-app.apk';
   const releasesPageUrl = 'https://github.com/AndreeHappy/Finanzas/releases';
 
   const handleInstallPwa = async () => {

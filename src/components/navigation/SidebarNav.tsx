@@ -539,7 +539,8 @@ export const SidebarNav: React.FC<Props> = ({
       {/* BARRA DE NAVEGACIÓN MÓVIL (PANTALLAS < md) */}
       <nav
         aria-label="Navegación móvil"
-        className="md:hidden fixed bottom-3 inset-x-2 z-40 flex justify-center pointer-events-none select-none"
+        className="md:hidden fixed inset-x-2 z-40 flex justify-center pointer-events-none select-none"
+        style={{ bottom: 'max(0.75rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem))' }}
       >
         <div className="pointer-events-auto w-full max-w-lg mx-auto bg-white/95 dark:bg-[#0c0d13]/95 backdrop-blur-2xl border border-slate-200/90 dark:border-white/10 rounded-2xl shadow-2xl p-1 flex items-center justify-between gap-1 overflow-hidden">
           {NAV_ITEMS.map((item) => {
