@@ -76,58 +76,55 @@ const MainPortal: React.FC = () => {
 
   return (
     <div
-      className={`min-h-[100dvh] bg-[#f2f4f7] dark:bg-[#0c0d12] text-slate-900 dark:text-zinc-100 flex flex-col justify-between antialiased transition-[padding] duration-300 ease-out relative ${
+      className={`min-h-[100dvh] bg-[#f2f4f7] dark:bg-[#0c0d12] text-slate-900 dark:text-zinc-100 flex flex-col justify-start md:justify-center antialiased transition-[padding] duration-300 ease-out relative ${
         isSidebarExpanded ? 'md:pl-[236px]' : 'md:pl-[72px]'
       }`}
     >
-      {/* Header Transparente Alineado (con soporte de Safe Area para muescas y barra de estado) */}
+      {/* Header Transparente Exclusivo de pantallas móviles (Saludo a la izquierda, Botón de Tema a la derecha) */}
       <header
-        className="w-full bg-transparent px-3 sm:px-6 lg:px-8 pb-1.5 sm:pb-2 select-none relative z-20"
+        className="md:hidden w-full bg-transparent px-3 pb-1.5 select-none relative z-20"
         style={{ paddingTop: 'max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.5rem))' }}
       >
-        <div className="w-full max-w-7xl 2xl:max-w-[1540px] mx-auto flex items-center justify-between">
-          {/* Header en pantallas móviles: Saludo a la izquierda, Botón de Tema celestial a la derecha */}
-          <div className="flex md:hidden items-center justify-between w-full">
-            <div className="flex items-center gap-2.5">
-              <AppLogo size={32} className="shrink-0 drop-shadow-md" />
-              <h1 className="text-base font-black tracking-tight text-slate-900 dark:text-white">
-                Hola, {greetingName}
-              </h1>
-            </div>
-
-            {/* Botón de cambio de tema móvil (Monocromático Blanco & Negro según el tema) */}
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.9 }}
-              onClick={toggleTheme}
-              className="w-10 h-10 rounded-2xl bg-white/90 dark:bg-[#151622]/90 border border-slate-200/90 dark:border-white/10 shadow-md flex items-center justify-center cursor-pointer text-zinc-950 dark:text-white"
-              title="Cambiar tema claro / oscuro"
-            >
-              <AnimatePresence mode="wait" initial={false}>
-                {mode === 'dark' ? (
-                  <motion.div
-                    key="moon"
-                    initial={{ rotate: -90, scale: 0.5, opacity: 0 }}
-                    animate={{ rotate: 0, scale: 1, opacity: 1 }}
-                    exit={{ rotate: 90, scale: 0.5, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Moon size={20} weight="fill" className="text-white" />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="sun"
-                    initial={{ rotate: 90, scale: 0.5, opacity: 0 }}
-                    animate={{ rotate: 0, scale: 1, opacity: 1 }}
-                    exit={{ rotate: 90, scale: 0.5, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Sun size={20} weight="fill" className="text-zinc-950" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.button>
+        <div className="w-full max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <AppLogo size={32} className="shrink-0 drop-shadow-md" />
+            <h1 className="text-base font-black tracking-tight text-slate-900 dark:text-white">
+              Hola, {greetingName}
+            </h1>
           </div>
+
+          {/* Botón de cambio de tema móvil (Monocromático Blanco & Negro según el tema) */}
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.9 }}
+            onClick={toggleTheme}
+            className="w-10 h-10 rounded-2xl bg-white/90 dark:bg-[#151622]/90 border border-slate-200/90 dark:border-white/10 shadow-md flex items-center justify-center cursor-pointer text-zinc-950 dark:text-white"
+            title="Cambiar tema claro / oscuro"
+          >
+            <AnimatePresence mode="wait" initial={false}>
+              {mode === 'dark' ? (
+                <motion.div
+                  key="moon"
+                  initial={{ rotate: -90, scale: 0.5, opacity: 0 }}
+                  animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                  exit={{ rotate: 90, scale: 0.5, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Moon size={20} weight="fill" className="text-white" />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="sun"
+                  initial={{ rotate: 90, scale: 0.5, opacity: 0 }}
+                  animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                  exit={{ rotate: 90, scale: 0.5, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Sun size={20} weight="fill" className="text-zinc-950" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.button>
         </div>
       </header>
 
@@ -135,10 +132,7 @@ const MainPortal: React.FC = () => {
       <InteractiveBackground />
 
       {/* Vista Principal según Módulo Activo con Centrado Óptico y Scroll Móvil Libre */}
-      <main
-        className="flex-1 w-full flex flex-col items-center justify-start md:justify-center px-2.5 sm:px-6 lg:px-8 py-2 sm:py-3 md:pb-6 relative z-10"
-        style={{ paddingBottom: 'max(9rem, calc(env(safe-area-inset-bottom, 0px) + 8rem))' }}
-      >
+      <main className="flex-1 w-full flex flex-col items-center justify-start md:justify-center px-2.5 sm:px-6 lg:px-8 py-2 md:py-4 relative z-10 mobile-safe-bottom">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeModule}

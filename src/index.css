@@ -437,3 +437,14 @@ html.light .bg-\[\#141217\] button:has(svg.ph-x):hover {
   color: #0f172a !important;
 }
 
+/* Espaciado inferior adaptativo (resguarda la barra flotante en celular sin desfasar el centrado en escritorio) */
+.mobile-safe-bottom {
+  padding-bottom: max(8.5rem, calc(env(safe-area-inset-bottom, 0px) + 7.5rem));
+}
+
+@media (min-width: 768px) {
+  .mobile-safe-bottom {
+    padding-bottom: 1.5rem !important;
+  }
+}
+

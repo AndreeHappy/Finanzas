@@ -42,7 +42,7 @@ export const InicioView: React.FC = () => {
   const savingsBalance = savingsWallet?.balance || summary.totalSavings || 0;
 
   return (
-    <div className="w-full max-w-7xl 2xl:max-w-[1540px] mx-auto flex flex-col justify-center gap-3.5 lg:gap-4 py-1 pb-4 sm:pb-6 px-1 sm:px-2">
+    <div className="w-full max-w-7xl 2xl:max-w-[1540px] mx-auto flex flex-col justify-center gap-3.5 lg:gap-4 py-1 px-1 sm:px-2">
       {/* Sección Principal (2 Columnas: Mazo de 3 Cuentas vs Resúmenes en Cascada) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-7 items-center">
         {/* Columna Izquierda: Tarjetas y Billetes Táctiles Centrados (z-30 para flotar por encima de los resúmenes) */}
